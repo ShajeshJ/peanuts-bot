@@ -39,7 +39,7 @@ class EnvConfig:
 
         self.__load_env_called__ = True
 
-        for env_name, t_annotation in inspect.get_annotations(EnvConfig).items():
+        for env_name, t_annotation in inspect.get_annotations(type(self)).items():
             logger.debug(f"Retrieving env var {env_name}")
             is_optional = False
             env_type = t_annotation
