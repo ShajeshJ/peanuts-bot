@@ -37,7 +37,7 @@ class EnvLoader:
                 is_optional = True
                 env_type = t_annotation.__args__[0]
 
-            # Supporting easy to cast primitive types to simplify our lives
+            # Limiting casting to easy-to-cast primitives to simplify my life
             if env_type not in [str, int, bool]:
                 raise TypeError(f"Unsupported type '{t_annotation}' for env var {env_name}")
 
