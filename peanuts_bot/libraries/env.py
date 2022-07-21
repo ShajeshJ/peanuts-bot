@@ -1,8 +1,9 @@
 import os
 import logging
-import types
 import inspect
 import typing as t
+
+from peanuts_bot.libraries.type_checking import get_optional_subtype
 
 
 logger = logging.getLogger(__name__)
@@ -28,18 +29,15 @@ class EnvLoader:
             is_optional = False
             env_type = t_annotation
 
-            # Checks type hinting of the form "<class> | None"
-            if (
-                isinstance(t_annotation, types.UnionType)
-                and len(t_annotation.__args__) == 2
-                and t_annotation.__args__[-1] is types.NoneType
-            ):
-                is_optional = True
-                env_type = t_annotation.__args__[0]
+            try:
+                env_type = get_optional_subtype(t_annotation)
+                logger.debug(f"<{env_type}> found as optional annotation's subtype")
+            except ValueError:
+                logger.debug(f"<{t_annotation}> found as non-optional type")
 
             # Limiting casting to easy-to-cast primitives to simplify my life
             if env_type not in [str, int, bool]:
-                raise TypeError(f"Unsupported type '{t_annotation}' for env var {env_name}")
+                raise TypeError(f"Unsupported type <{t_annotation}> for env var {env_name}")
 
             try:
                 default = getattr(self, env_name)
