@@ -1,4 +1,4 @@
-import logging
 from config import CONFIG
+import interactions as dpyi
 
-logging.info(CONFIG.IS_LOCAL)
+bot = dpyi.Client(CONFIG.BOT_TOKEN)

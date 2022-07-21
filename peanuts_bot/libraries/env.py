@@ -9,8 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class EnvLoader:
+    __loader_locked__ = False
+
     def __init__(self) -> None:
-        self.__loader_locked__ = False
         self.__load_env__()
 
     def __load_env__(self) -> None:
