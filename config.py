@@ -17,9 +17,8 @@ class EnvConfig:
     To add properties computed off of env variables, define an @property function
     """
 
-    LOG_LEVEL: str = "INFO"
     BOT_TOKEN: str
-    TESTING: str
+    LOG_LEVEL: str = "INFO"
 
     @property
     def IS_DEBUG(self) -> bool:
