@@ -19,7 +19,7 @@ class EnvLoader:
         """
         The special sauce function, which dynamically imports environment
         variable values into this object, ensuring casting and defaults are
-        applied appropriately 
+        applied appropriately
         """
         if self.__loader_locked__:
             return
@@ -37,7 +37,9 @@ class EnvLoader:
 
             # Limiting casting to easy-to-cast primitives to simplify my life
             if env_type not in [str, int, bool]:
-                raise TypeError(f"Unsupported type <{t_annotation}> for env var {env_name}")
+                raise TypeError(
+                    f"Unsupported type <{t_annotation}> for env var {env_name}"
+                )
 
             try:
                 default = getattr(self, env_name)
@@ -46,7 +48,7 @@ class EnvLoader:
                 default = None
 
             env_value = os.environ.get(env_name, default)
-            
+
             if env_value is None and not is_optional:
                 raise KeyError(f"Missing required env var {env_name}")
 
@@ -63,6 +65,8 @@ class EnvLoader:
 
     def __setattr__(self, __name: str, __value: t.Any) -> None:
         if self.__loader_locked__:
-            raise AttributeError(f"Failed to set attribute '{__name}'. Assignment frozen for {type(self)} object")
+            raise AttributeError(
+                f"Failed to set attribute '{__name}'. Assignment frozen for {type(self)} object"
+            )
 
         return super().__setattr__(__name, __value)

@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 
 
-def at_least_n(__iterable: Iterable, /, n: int=1) -> bool:
+def at_least_n(__iterable: Iterable, /, n: int = 1) -> bool:
     """Return True if bool(x) is True for at least n items"""
 
     if n < 1:
@@ -18,7 +18,7 @@ def at_least_n(__iterable: Iterable, /, n: int=1) -> bool:
     return True
 
 
-def exactly_n(__iterable: Iterable, /, n: int=1) -> bool:
+def exactly_n(__iterable: Iterable, /, n: int = 1) -> bool:
     """Return True if bool(x) is True for exactly n items"""
 
     if n < 1:
@@ -29,6 +29,7 @@ def exactly_n(__iterable: Iterable, /, n: int=1) -> bool:
     # `at_least_n` consumes the iterator up to the first n truthy items.
     # So for exact, we make sure the leftovers have no more truthy items.
     return at_least_n(iterator, n=n) and not any(iterator)
+
 
 # TODO: Move below to tests/
 

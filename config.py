@@ -2,6 +2,7 @@ from peanuts_bot.libraries.env import EnvLoader
 
 __all__ = ["CONFIG"]
 
+
 class EnvConfig(EnvLoader):
     """
     INSTRUCTIONS:
@@ -23,5 +24,6 @@ class EnvConfig(EnvLoader):
     @property
     def IS_DEBUG(self) -> bool:
         return self.LOG_LEVEL == "DEBUG"
+
 
 CONFIG = EnvConfig()
