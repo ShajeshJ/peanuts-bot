@@ -3,7 +3,7 @@ import logging
 import inspect
 import typing as t
 
-from peanuts_bot.libraries.type_checking import get_optional_subtype
+from peanuts_bot.libraries.types_ext import get_optional_subtype
 
 
 logger = logging.getLogger(__name__)
