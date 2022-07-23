@@ -16,6 +16,7 @@ class EnvConfig(EnvLoader):
     ENV: str
     BOT_TOKEN: str
     LOG_LEVEL: str = "INFO"
+    GUILD_ID: int
 
     @property
     def IS_LOCAL(self) -> bool:

@@ -5,3 +5,6 @@ bot = ipy.Client(CONFIG.BOT_TOKEN)
 
 # Load library extensions
 bot.load("interactions.ext.enhanced")
+
+# Load bot extensions
+bot.load("peanuts_bot.extensions.roles")
