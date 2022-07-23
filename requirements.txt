@@ -4,8 +4,10 @@ async-timeout==4.0.2
 attrs==21.4.0
 charset-normalizer==2.1.0
 discord-py-interactions==4.2.1
+enhanced==3.2.1
 frozenlist==1.3.0
 idna==3.3
 multidict==6.0.2
 python-dotenv==0.20.0
+typing_extensions==4.3.0
 yarl==1.7.2
