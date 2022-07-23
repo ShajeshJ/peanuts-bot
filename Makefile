@@ -1,7 +1,7 @@
 venv_dir := .venv
 venv_activate := . $(venv_dir)/bin/activate
 req_file := requirements.txt
-dev_req_file := requirements-dev.txt
+dev_req_file := dev-requirements.txt
 
 create_venv:
 	python -m venv $(venv_dir)
