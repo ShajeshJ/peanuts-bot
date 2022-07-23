@@ -1,7 +1,7 @@
-import interactions as dpyi
+import interactions as ipy
 from config import CONFIG
 
-bot = dpyi.Client(CONFIG.BOT_TOKEN)
+bot = ipy.Client(CONFIG.BOT_TOKEN)
 
 # Load library extensions
 bot.load("interactions.ext.enhanced")
