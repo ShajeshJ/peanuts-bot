@@ -31,6 +31,11 @@ class RolesExtension(ipy.Extension):
         ],
     ):
         """Create a new mention role that others can join"""
+
+        if any(r.name == name for r in await ctx.guild.get_all_roles()):
+            await ctx.send(f"The role {name} already exists")
+            return
+
         role = await ctx.guild.create_role(
             name=name,
             mentionable=True,
