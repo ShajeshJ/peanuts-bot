@@ -33,7 +33,7 @@ class RolesExtension(ipy.Extension):
         """Create a new mention role that others can join"""
 
         if any(r.name == name for r in await ctx.guild.get_all_roles()):
-            await ctx.send(f"The role {name} already exists")
+            await ctx.send(f"The role {name} already exists", ephemeral=True)
             return
 
         role = await ctx.guild.create_role(
@@ -54,7 +54,7 @@ class RolesExtension(ipy.Extension):
             if is_joinable(role) and role.id not in ctx.author.roles
         ]
         if not options:
-            await ctx.send("There are no new roles you can join")
+            await ctx.send("There are no new roles you can join", ephemeral=True)
             return
 
         role_dropdown = ipy.SelectMenu(
@@ -63,7 +63,7 @@ class RolesExtension(ipy.Extension):
             max_values=len(options),
             options=options,
         )
-        await ctx.send(components=role_dropdown)
+        await ctx.send(components=role_dropdown, ephemeral=True)
 
     @ipy.extension_component(SELECT_JOIN_ROLE_ID)
     async def join_selection(
@@ -71,7 +71,9 @@ class RolesExtension(ipy.Extension):
     ):
         """Callback after a selection is made on the join dropdown"""
         if not role_names:
-            await ctx.send("Sorry, something went wrong. Try again later.")
+            await ctx.send(
+                "Sorry, something went wrong. Try again later.", ephemeral=True
+            )
             return
 
         invalid_roles = []
@@ -104,10 +106,14 @@ class RolesExtension(ipy.Extension):
         await asyncio.gather(*joined_roles.values())
 
         if joined_roles:
-            await ctx.send(f"Successfully joined {', '.join(joined_roles)}")
+            await ctx.send(
+                f"Successfully joined {', '.join(joined_roles)}", ephemeral=True
+            )
 
         if invalid_roles:
-            await ctx.send(f"Failed to join {', '.join(invalid_roles)}.")
+            await ctx.send(
+                f"Failed to join {', '.join(invalid_roles)}.", ephemeral=True
+            )
 
 
 def is_joinable(r: ipy.Role) -> bool:
