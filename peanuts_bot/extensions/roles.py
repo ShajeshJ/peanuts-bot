@@ -46,6 +46,33 @@ class RolesExtension(ipy.Extension):
 
     @role.subcommand()
     @ipye.setup_options
+    async def delete(
+        self,
+        ctx: ipy.CommandContext,
+        role: Annotated[
+            ipy.Role,
+            ipye.EnhancedOption(ipy.Role, description="The role to be deleted"),
+        ],
+    ):
+        """Request to delete a mentionable role"""
+        if not is_joinable(role):
+            await ctx.send(f"You cannot request to delete this role", ephemeral=True)
+            return
+
+        for user in await ctx.guild.get_all_members():
+            if role.id in user.roles and user.id != ctx.author.id:
+                await ctx.send(
+                    f"There are 1 or more people still in this role", ephemeral=True
+                )
+                return
+
+        await ctx.guild.delete_role(
+            role, f"Mention role deleted via bot command by {ctx.author.name}"
+        )
+        await ctx.send(f"Role '{role.name}' delete successfully")
+
+    @role.subcommand()
+    @ipye.setup_options
     async def join(self, ctx: ipy.CommandContext):
         """Add yourself to a mention role"""
         options = [
@@ -99,7 +126,9 @@ class RolesExtension(ipy.Extension):
             return
 
         user_is_joining = ctx.custom_id.lower().endswith("join")
-        logger.info(f"Toggle role callback called. user_is_joining={user_is_joining}")
+        logger.info(
+            f"Toggle role callback called with id {ctx.custom_id}. user_is_joining={user_is_joining}"
+        )
 
         toggle_role = ctx.author.add_role if user_is_joining else ctx.author.remove_role
 
@@ -125,7 +154,11 @@ class RolesExtension(ipy.Extension):
                 continue
 
             logger.info(f"{ctx.author.name} attempting to toggle {role_name}")
-            toggled_roles[role_name] = toggle_role(valid_roles[role_name], ctx.guild_id)
+            toggled_roles[role_name] = toggle_role(
+                valid_roles[role_name],
+                ctx.guild_id,
+                f"{ctx.author.name} toggled role via join/leave command",
+            )
 
         await asyncio.gather(*(x for x in toggled_roles.values() if x is not None))
 
