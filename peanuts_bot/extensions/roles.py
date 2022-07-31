@@ -69,7 +69,7 @@ class RolesExtension(ipy.Extension):
         await ctx.guild.delete_role(
             role, f"Mention role deleted via bot command by {ctx.author.name}"
         )
-        await ctx.send(f"Role '{role.name}' delete successfully")
+        await ctx.send(f"Role '{role.name}' has been deleted")
 
     @role.subcommand()
     @ipye.setup_options
