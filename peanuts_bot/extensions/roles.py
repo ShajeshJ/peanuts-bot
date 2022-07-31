@@ -10,7 +10,7 @@ __all__ = ["setup", "RolesExtension"]
 
 logger = logging.getLogger(__name__)
 
-SELECT_JOIN_ROLE_ID = "join_role"
+ROLE_TOGGLE_PREFIX = "role_toggle_"
 
 
 class RolesExtension(ipy.Extension):
@@ -58,26 +58,53 @@ class RolesExtension(ipy.Extension):
             return
 
         role_dropdown = ipy.SelectMenu(
-            custom_id=SELECT_JOIN_ROLE_ID,
+            custom_id=f"{ROLE_TOGGLE_PREFIX}join",
             placeholder="Join a mention role",
             max_values=len(options),
             options=options,
         )
         await ctx.send(components=role_dropdown, ephemeral=True)
 
-    @ipy.extension_component(SELECT_JOIN_ROLE_ID)
-    async def join_selection(
-        self, ctx: ipy.ComponentContext, role_names: list[str] | None
-    ):
-        """Callback after a selection is made on the join dropdown"""
+    @role.subcommand()
+    @ipye.setup_options
+    async def leave(self, ctx: ipy.CommandContext):
+        """Remove yourself from a mention role"""
+        options = [
+            ipy.SelectOption(label=role.name, value=role.name)
+            for role in await ctx.guild.get_all_roles()
+            if is_joinable(role) and role.id in ctx.author.roles
+        ]
+        if not options:
+            await ctx.send("There are no roles you can leave", ephemeral=True)
+            return
+
+        role_dropdown = ipy.SelectMenu(
+            custom_id=f"{ROLE_TOGGLE_PREFIX}leave",
+            placeholder="Leave a mention role",
+            max_values=len(options),
+            options=options,
+        )
+        await ctx.send(components=role_dropdown, ephemeral=True)
+
+    @ipy.extension_component(ROLE_TOGGLE_PREFIX, startswith=True)
+    async def toggle_role(self, ctx: ipy.ComponentContext):
+        """Callback after a selection is made on a join/leave dropdown"""
+        role_names = ctx.data.values
+
         if not role_names:
+            logger.warning(f"Toggle role callback called without role values...")
             await ctx.send(
                 "Sorry, something went wrong. Try again later.", ephemeral=True
             )
             return
 
+        user_is_joining = ctx.custom_id.lower().endswith("join")
+        logger.info(f"Toggle role callback called. user_is_joining={user_is_joining}")
+
+        toggle_role = ctx.author.add_role if user_is_joining else ctx.author.remove_role
+
         invalid_roles = []
-        joined_roles = {}
+        toggled_roles = {}
 
         valid_roles = {
             r.name: r for r in await ctx.guild.get_all_roles() if is_joinable(r)
@@ -85,34 +112,33 @@ class RolesExtension(ipy.Extension):
 
         for role_name in role_names:
             if role_name not in valid_roles:
-                logger.info(f"{role_name} is not a joinable role. Skipping...")
+                logger.info(f"{role_name} is not a toggleable role. Skipping...")
                 invalid_roles.append(role_name)
                 continue
 
-            if valid_roles[role_name].id in ctx.author.roles:
-                # To avoid re-calling discord APIs to join roles the user is in
+            if (valid_roles[role_name].id in ctx.author.roles) == user_is_joining:
+                # To avoid re-calling discord APIs to join/eave roles the user is in
                 logger.info(
-                    f"{ctx.author.name} already joined {role_name}. Skipping..."
+                    f"{ctx.author.name} already had {role_name} set to {user_is_joining}. Skipping..."
                 )
-                # Kind of hacky, but we're basically tagging on a "do nothing" task
-                joined_roles[role_name] = asyncio.sleep(0)
+                toggled_roles[role_name] = None
                 continue
 
-            logger.info(f"{ctx.author.name} attempting to join {role_name}")
-            joined_roles[role_name] = ctx.author.add_role(
-                valid_roles[role_name], ctx.guild_id
-            )
+            logger.info(f"{ctx.author.name} attempting to toggle {role_name}")
+            toggled_roles[role_name] = toggle_role(valid_roles[role_name], ctx.guild_id)
 
-        await asyncio.gather(*joined_roles.values())
+        await asyncio.gather(*(x for x in toggled_roles.values() if x is not None))
 
-        if joined_roles:
+        if toggled_roles:
             await ctx.send(
-                f"Successfully joined {', '.join(joined_roles)}", ephemeral=True
+                f"Successfully {'joined' if user_is_joining else 'left'} {', '.join(toggled_roles)}",
+                ephemeral=True,
             )
 
         if invalid_roles:
             await ctx.send(
-                f"Failed to join {', '.join(invalid_roles)}.", ephemeral=True
+                f"Failed to {'join' if user_is_joining else 'leave'} {', '.join(invalid_roles)}.",
+                ephemeral=True,
             )
 
 
