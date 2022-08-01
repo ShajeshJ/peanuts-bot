@@ -30,7 +30,7 @@ class ChannelsExtension(ipy.Extension):
         ],
         category: ipye.EnhancedOption(
             ipy.Channel,
-            description="Optional channel category",
+            description="Category to nest the channel under",
             channel_types=[ipy.ChannelType.GUILD_CATEGORY],
         ) = None,
     ):
