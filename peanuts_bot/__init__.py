@@ -23,15 +23,13 @@ if CONFIG.IS_LOCAL:
     @ipye.setup_options
     async def reload(
         ctx: ipy.CommandContext,
-        ext: Annotated[
-            str,
-            ipye.EnhancedOption(
-                str,
-                description="The extension to reload",
-                choices=reloadable_extensions,
-            ),
-        ],
+        ext: ipye.EnhancedOption(
+            str, description="The extension to reload", choices=reloadable_extensions
+        ),
     ):
         """Reload bot commands"""
+        if ctx.author.id != CONFIG.ADMIN_USER_ID:
+            return
+
         bot.reload(ext)
         await ctx.send(f"{ext} reloaded", ephemeral=True)
