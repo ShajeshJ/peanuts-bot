@@ -39,7 +39,7 @@ class RolesExtension(ipy.Extension):
         role = await ctx.guild.create_role(
             name=name,
             mentionable=True,
-            reason=f"Mention role created via bot command by {ctx.author.name}",
+            reason=f"Created by {ctx.author.name} via bot commands",
             permissions=0,
         )
         await ctx.send(f"Created the role {role.mention}")
@@ -67,7 +67,7 @@ class RolesExtension(ipy.Extension):
                 return
 
         await ctx.guild.delete_role(
-            role, f"Mention role deleted via bot command by {ctx.author.name}"
+            role, f"Deleted by {ctx.author.name} via bot commands"
         )
         await ctx.send(f"Role '{role.name}' has been deleted")
 
