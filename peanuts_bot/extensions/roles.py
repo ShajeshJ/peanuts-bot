@@ -42,7 +42,7 @@ class RolesExtension(ipy.Extension):
             reason=f"Created by {ctx.author.name} via bot commands",
             permissions=0,
         )
-        await ctx.send(f"Created the role {role.mention}")
+        await ctx.send(f"Created new role {role.mention}")
 
     @role.subcommand()
     @ipye.setup_options
@@ -69,7 +69,7 @@ class RolesExtension(ipy.Extension):
         await ctx.guild.delete_role(
             role, f"Deleted by {ctx.author.name} via bot commands"
         )
-        await ctx.send(f"Role '{role.name}' has been deleted")
+        await ctx.send(f"Deleted role '{role.name}'")
 
     @role.subcommand()
     @ipye.setup_options

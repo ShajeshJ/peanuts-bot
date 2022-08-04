@@ -55,7 +55,7 @@ class ChannelsExtension(ipy.Extension):
             reason=f"Created by {ctx.author.name} via bot commands",
         )
 
-        await ctx.send(f"{channel.mention} created successfully")
+        await ctx.send(f"Created new channel {channel.mention}")
 
 
 def setup(client: ipy.Client):

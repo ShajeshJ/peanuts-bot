@@ -11,6 +11,7 @@ bot.load("interactions.ext.enhanced")
 reloadable_extensions = [
     ipy.Choice(name="Role Commands", value="peanuts_bot.extensions.roles"),
     ipy.Choice(name="Channel Commands", value="peanuts_bot.extensions.channels"),
+    ipy.Choice(name="Emoji Commands", value="peanuts_bot.extensions.emojis"),
 ]
 
 # Load bot extensions
