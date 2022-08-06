@@ -5,6 +5,7 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
+from peanuts_bot.constants.messages import SOMETHING_WRONG
 
 __all__ = ["setup", "RolesExtension"]
 
@@ -120,9 +121,7 @@ class RolesExtension(ipy.Extension):
 
         if not role_names:
             logger.warning(f"Toggle role callback called without role values...")
-            await ctx.send(
-                "Sorry, something went wrong. Try again later.", ephemeral=True
-            )
+            await ctx.send(SOMETHING_WRONG, ephemeral=True)
             return
 
         user_is_joining = ctx.custom_id.lower().endswith("join")
