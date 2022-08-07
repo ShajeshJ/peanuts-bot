@@ -13,6 +13,7 @@ from peanuts_bot.libraries.bot_messaging import (
     disable_all_components,
     get_emoji_mention,
 )
+from peanuts_bot.libraries import storage
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,6 @@ class EmojiRequest:
 class EmojiExtensions(ipy.Extension):
     def __init__(self, client: ipy.Client) -> None:
         self.client: ipy.Client = client
-        self.active_requests: dict[str, EmojiRequest] = {}
 
     @ipy.extension_command(scope=CONFIG.GUILD_ID)
     @ipye.setup_options
@@ -85,9 +85,9 @@ class EmojiExtensions(ipy.Extension):
         text_fields = []
 
         for i, img in enumerate(images):
-            tracking_id = self._track_request(
-                EmojiRequest(None, img, ctx.author, ctx.channel)
-            )
+            req = EmojiRequest(None, img, ctx.author, ctx.channel)
+            storage.put(req._id, req)
+            tracking_id = req._id
 
             label = f'Emoji name to give "{img.filename}"'
             if len(label) > 45:
@@ -132,10 +132,10 @@ class EmojiExtensions(ipy.Extension):
             shortcut = field.value
 
             if not shortcut:
-                self._pop_request(tracking_id)
+                storage.pop(tracking_id)
                 continue
 
-            req = self._get_request(tracking_id)
+            req: EmojiRequest = storage.get(tracking_id)
             outcomes.append(await self._request_emoji(shortcut, req.emoji, ctx))
 
         errors = [f"\n- {e}" for e in outcomes if e is not None]
@@ -155,7 +155,7 @@ class EmojiExtensions(ipy.Extension):
         """Callback of an admin approving an emoji"""
 
         tracking_id = ctx.custom_id.replace(APPROVE_EMOJI_PREFIX, "")
-        emoji_request = self._pop_request(tracking_id)
+        emoji_request: EmojiRequest = storage.pop(tracking_id)
 
         # Refresh potentially stale objects using id
         channel = await ipy.get(
@@ -218,7 +218,7 @@ class EmojiExtensions(ipy.Extension):
         reason = ctx.data.components[0].components[0].value
 
         tracking_id = ctx.data.custom_id.replace(MODAL_REJECT_EMOJI_PREFIX, "")
-        emoji_request = self._pop_request(tracking_id)
+        emoji_request: EmojiRequest = storage.pop(tracking_id)
 
         # Refresh potentially stale objects using id
         channel = await ipy.get(
@@ -260,9 +260,9 @@ class EmojiExtensions(ipy.Extension):
         if not is_valid_shortcut(name):
             return f"{name} is not a valid shortcut. Emoji Shortcuts must be alphanumeric or underscore characters only."
 
-        tracking_id = self._track_request(
-            EmojiRequest(name, emoji, ctx.author, ctx.channel)
-        )
+        req = EmojiRequest(name, emoji, ctx.author, ctx.channel)
+        storage.put(req._id, req)
+        tracking_id = req._id
 
         yes_btn = ipy.Button(
             label="Approve",
@@ -281,35 +281,6 @@ class EmojiExtensions(ipy.Extension):
             f"{ctx.author.name} requested to create the emoji {emoji.url} with the shortcut '{name}'",
             components=[yes_btn, no_btn],
         )
-
-    def _get_request(self, tracking_id: str) -> EmojiRequest:
-        """
-        Retrieve the EmojiRequest object tied to the tracking id
-
-        :param tracking_id: The tracking id for the emoji request
-        :return: The object representing the emoji request
-        """
-        return self.active_requests[tracking_id]
-
-    def _pop_request(self, tracking_id: str) -> EmojiRequest:
-        """
-        Pop the EmojiRequest off of the actively tracked list
-
-        :param tracking_id: The tracking id for the emoji request
-        :return: The object representing the emoji request
-        """
-        return self.active_requests.pop(tracking_id)
-
-    def _track_request(self, request: EmojiRequest) -> str:
-        """
-        Ensure the given emoji request is tracked
-
-        :param request: The emoji request to start tracking
-        :return: The tracking id for the request
-        """
-
-        self.active_requests[request._id] = request
-        return request._id
 
 
 def is_image(attachment: ipy.Attachment) -> bool:
