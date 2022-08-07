@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import json
 import logging
 import aiohttp
 import re
@@ -59,6 +60,8 @@ class EmojiExtensions(ipy.Extension):
         """Request a new Emoji to be added"""
 
         emoji: ipy.Attachment = emoji
+
+        print(json.dumps(emoji))
 
         error = await self._request_emoji(shortcut, emoji, ctx)
         if error:

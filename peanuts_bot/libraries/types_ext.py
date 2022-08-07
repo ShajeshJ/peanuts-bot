@@ -4,26 +4,54 @@ import typing as t
 
 def get_optional_subtype(t_annotation):
     """
-    Given an optional type annotation, will return the subtype.
+    Given an optional type annotation, will return the subtype. Otherwise raises `ValueError`.
 
-    Optional type annotations include "Optional[x]", "Union[x, None]" and "x | None"
+    Optional type annotations include `Optional[x]`, `Union[x, None]` and `x | None`
     """
+    t_args = t.get_args(t_annotation)
 
-    if not hasattr(t_annotation, "__args__") or not isinstance(
-        t_annotation.__args__, tuple
-    ):
+    if not t_args:
         raise ValueError(f"<{t_annotation}> is not an optional type")
 
+    match t_args:
+        case (subtype, types.NoneType):
+            pass
+        case (types.NoneType, subtype):
+            pass
+        case _:
+            raise ValueError(f"<{t_annotation}> is not an optional type")
+
+    if t.Optional[subtype] != t_annotation:
+        raise ValueError(f"<{t_annotation}> is not an optional type")
+
+    return subtype
+
+
+assert get_optional_subtype(str | None) == str
+assert get_optional_subtype(None | str) == str
+assert get_optional_subtype(t.Union[None, str]) == str
+assert get_optional_subtype(t.Union[str, None]) == str
+assert get_optional_subtype(t.Optional[str]) == str
+
+fail_cases = [
+    str,
+    None,
+    str | bool,
+    t.Union[bool, str],
+    t.Union[None, None],
+    t.Union[str, bool, None],
+    t.Optional[None],
+    list[None],
+    list[str],
+    dict[str, None],
+    dict[None, str],
+    t.Annotated[str, None],
+    t.Annotated[None, str],
+]
+
+for case in fail_cases:
     try:
-        a1, a2 = t_annotation.__args__
-        sub_type = next(a for a in (a1, a2) if a is not types.NoneType)
-
-        # Implicitly checks for at least 1 NoneType
-        next(a for a in (a1, a2) if a is types.NoneType)
-    except (ValueError, StopIteration):
-        raise ValueError(f"<{t_annotation}> is not an optional type")
-
-    if t.Optional[sub_type] != t_annotation:
-        raise ValueError(f"<{t_annotation}> is not an optional type")
-
-    return sub_type
+        val = get_optional_subtype(case)
+        assert False, f"{case} returned {val} for optional subtype"
+    except ValueError:
+        pass
