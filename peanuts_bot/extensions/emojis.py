@@ -8,7 +8,7 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
-from peanuts_bot.constants.messages import SOMETHING_WRONG
+from peanuts_bot.constants.bot import MAX_EMOJI_FILE_SIZE_IN_BYTES, SOMETHING_WRONG
 from peanuts_bot.libraries.bot_messaging import (
     disable_all_components,
     get_emoji_mention,
@@ -23,8 +23,6 @@ REJECT_EMOJI_PREFIX = "deny_emoji_"
 SHORTCUT_MODAL = "shortcut_data_modal"
 SHORTCUT_TEXT_PREFIX = "shortcut_value_"
 MODAL_REJECT_EMOJI_PREFIX = "reject_emoji_modal_"
-
-MAX_EMOJI_FILE_SIZE_IN_BYTES = 2048 * 1000
 
 
 @dataclass
@@ -249,6 +247,10 @@ class EmojiExtensions(ipy.Extension):
         :return: If the emoji could not be added, the string returned is the rejection reason.
         """
         logger.debug(f"Emoji command file type {emoji.content_type}")
+
+        test = await ipy.get(
+            self.client, ipy.Attachment, object_id=emoji.id, parent_id=CONFIG.GUILD_ID
+        )
 
         if not is_image(emoji):
             return f"{emoji.filename} is not a valid file. Emoji images must be png, jpeg, or gif files."

@@ -5,7 +5,7 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
-from peanuts_bot.constants.messages import SOMETHING_WRONG
+from peanuts_bot.constants.bot import SOMETHING_WRONG
 
 __all__ = ["setup", "RolesExtension"]
 
