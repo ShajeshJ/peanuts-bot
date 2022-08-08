@@ -119,6 +119,8 @@ class RolesExtension(ipy.Extension):
         """Callback after a selection is made on a join/leave dropdown"""
         role_names = ctx.data.values
 
+        raise Exception("Proving Global Error Handling Middleware")
+
         if not role_names:
             logger.warning(f"Toggle role callback called without role values...")
             await ctx.send(SOMETHING_WRONG, ephemeral=True)

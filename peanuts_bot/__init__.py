@@ -7,6 +7,7 @@ bot = ipy.Client(CONFIG.BOT_TOKEN, intents=ipy.Intents.ALL)
 
 # Load library extensions
 bot.load("interactions.ext.enhanced")
+bot.load("peanuts_bot.middleware.error_handling")
 
 reloadable_extensions = [
     ipy.Choice(name="Role Commands", value="peanuts_bot.extensions.roles"),
