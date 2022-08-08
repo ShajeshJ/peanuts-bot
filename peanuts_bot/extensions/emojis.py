@@ -74,7 +74,7 @@ class EmojiExtensions(ipy.Extension):
             return
 
         images = [a for a in ctx.target.attachments if is_image(a)]
-        if len(images) < 0 or len(images) > 5:
+        if len(images) < 1 or len(images) > 5:
             await ctx.send(
                 "Message must contain between 1 to 5 attachments", ephemeral=True
             )
