@@ -33,5 +33,5 @@ if CONFIG.IS_LOCAL:
         if ctx.author.id != CONFIG.ADMIN_USER_ID:
             return
 
-        bot.reload(ext)
+        bot.reload(ext, remove_commands=False)
         await ctx.send(f"{ext} reloaded", ephemeral=True)
