@@ -1,5 +1,7 @@
+import asyncio
 from dataclasses import dataclass, field
 import logging
+import traceback
 import aiohttp
 import re
 from typing import Annotated
@@ -8,7 +10,8 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
-from peanuts_bot.constants.bot import MAX_EMOJI_FILE_SIZE_IN_BYTES
+from peanuts_bot.constants.bot import MAX_EMOJI_FILE_SIZE_IN_BYTES, SOMETHING_WRONG
+from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.bot_messaging import (
     disable_all_components,
     get_emoji_mention,
@@ -58,11 +61,7 @@ class EmojiExtensions(ipy.Extension):
 
         emoji: ipy.Attachment = emoji
 
-        error = await self._request_emoji(shortcut, emoji, ctx)
-        if error:
-            await ctx.send(error, ephemeral=True)
-            return
-
+        await _request_emoji(shortcut, emoji, ctx)
         await ctx.send("Emoji request sent", ephemeral=True)
 
     @ipy.extension_message_command(name="Convert to Emoji", scope=CONFIG.GUILD_ID)
@@ -74,10 +73,9 @@ class EmojiExtensions(ipy.Extension):
 
         images = [a for a in ctx.target.attachments if is_image(a)]
         if len(images) < 1 or len(images) > 5:
-            await ctx.send(
+            raise BotUsageError(
                 "Message must contain between 1 to 5 attachments", ephemeral=True
             )
-            return
 
         text_fields = []
 
@@ -126,19 +124,40 @@ class EmojiExtensions(ipy.Extension):
                 continue
 
             req: EmojiRequest = storage.get(tracking_id)
-            outcomes.append(await self._request_emoji(shortcut, req.emoji, ctx))
+            outcomes.append(_request_emoji(shortcut, req.emoji, ctx))
 
-        errors = [f"\n- {e}" for e in outcomes if e is not None]
-
-        if errors:
-            await ctx.send(
-                f"The following emojis could not be sent: {''.join(errors)}",
-                ephemeral=True,
-            )
-        elif not outcomes:
+        if not outcomes:
             await ctx.send("No emoji requests sent", ephemeral=True)
-        else:
+            return
+
+        errors = [
+            e
+            for e in await asyncio.gather(*outcomes, return_exceptions=True)
+            if isinstance(e, Exception)
+        ]
+
+        if not errors:
             await ctx.send("Emoji requests sent", ephemeral=True)
+            return
+
+        system_errors = [e for e in errors if not isinstance(e, BotUsageError)]
+
+        if system_errors:
+            logger.warning("Unexpected errors occurred in 1 or more emoji requests")
+
+        for e in system_errors:
+            logger.debug(
+                f"\nEmoji request error:\n{''.join(traceback.format_exception(e))}"
+            )
+
+        error_strs = [
+            f"\n- {str(e) if isinstance(e, BotUsageError) else SOMETHING_WRONG}"
+            for e in errors
+        ]
+        await ctx.send(
+            f"The following errors occurred: {''.join(error_strs)}",
+            ephemeral=True,
+        )
 
     @ipy.extension_component(APPROVE_EMOJI_PREFIX, startswith=True)
     async def approve_emoji(self, ctx: ipy.ComponentContext):
@@ -219,54 +238,60 @@ class EmojiExtensions(ipy.Extension):
         )
         await ctx.send("Rejection response sent", ephemeral=True)
 
-    async def _request_emoji(
-        self,
-        name: str,
-        emoji: ipy.Attachment,
-        ctx: ipy.CommandContext | ipy.ComponentContext,
-    ) -> str | None:
-        """
-        Sends a emoji creation request to the guild's Admin User
 
-        :param name: The name requested to give the emoji
-        :param emoji: The image attachment of the emoji
-        :param ctx: The current command context
+async def _request_emoji(
+    name: str,
+    emoji: ipy.Attachment,
+    ctx: ipy.CommandContext | ipy.ComponentContext,
+):
+    """
+    Sends a emoji creation request to the guild's Admin User
 
-        :return: If the emoji could not be added, the string returned is the rejection reason.
-        """
-        logger.debug(f"Emoji command file type {emoji.content_type}")
+    :param name: The name requested to give the emoji
+    :param emoji: The image attachment of the emoji
+    :param ctx: The current command context
 
-        if not is_image(emoji):
-            return f"{emoji.filename} is not a valid file. Emoji images must be png, jpeg, or gif files."
+    :return: If the emoji could not be added, the string returned is the rejection reason.
+    """
+    logger.debug(f"Emoji command file type {emoji.content_type}")
 
-        logger.debug(f"File size: {emoji.size}")
-        if emoji.size > MAX_EMOJI_FILE_SIZE_IN_BYTES:
-            return f"{emoji.filename} is too large to be an emoji. Emoji images must be < 2MB"
-
-        if not is_valid_shortcut(name):
-            return f"{name} is not a valid shortcut. Emoji Shortcuts must be alphanumeric or underscore characters only."
-
-        req = EmojiRequest(name, emoji, ctx.author, ctx.channel)
-        storage.put(req._id, req)
-        tracking_id = req._id
-
-        yes_btn = ipy.Button(
-            label="Approve",
-            style=ipy.ButtonStyle.SUCCESS,
-            custom_id=f"{APPROVE_EMOJI_PREFIX}{tracking_id}",
+    if not is_image(emoji):
+        raise BotUsageError(
+            f"{emoji.filename} is not a valid file. Emoji images must be png, jpeg, or gif files."
         )
 
-        no_btn = ipy.Button(
-            label="Deny",
-            style=ipy.ButtonStyle.DANGER,
-            custom_id=f"{REJECT_EMOJI_PREFIX}{tracking_id}",
+    logger.debug(f"File size: {emoji.size}")
+    if emoji.size > MAX_EMOJI_FILE_SIZE_IN_BYTES:
+        raise BotUsageError(
+            f"{emoji.filename} is too large to be an emoji. Emoji images must be < 2MB"
         )
 
-        admin_user = await ctx.guild.get_member(CONFIG.ADMIN_USER_ID)
-        await admin_user.send(
-            f"{ctx.author.name} requested to create the emoji {emoji.url} with the shortcut '{name}'",
-            components=[yes_btn, no_btn],
+    if not is_valid_shortcut(name):
+        raise BotUsageError(
+            f"{name} is not a valid shortcut. Emoji Shortcuts must be alphanumeric or underscore characters only."
         )
+
+    req = EmojiRequest(name, emoji, ctx.author, ctx.channel)
+    storage.put(req._id, req)
+    tracking_id = req._id
+
+    yes_btn = ipy.Button(
+        label="Approve",
+        style=ipy.ButtonStyle.SUCCESS,
+        custom_id=f"{APPROVE_EMOJI_PREFIX}{tracking_id}",
+    )
+
+    no_btn = ipy.Button(
+        label="Deny",
+        style=ipy.ButtonStyle.DANGER,
+        custom_id=f"{REJECT_EMOJI_PREFIX}{tracking_id}",
+    )
+
+    admin_user = await ctx.guild.get_member(CONFIG.ADMIN_USER_ID)
+    await admin_user.send(
+        f"{ctx.author.name} requested to create the emoji {emoji.url} with the shortcut '{name}'",
+        components=[yes_btn, no_btn],
+    )
 
 
 def is_image(attachment: ipy.Attachment) -> bool:
