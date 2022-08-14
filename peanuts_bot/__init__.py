@@ -1,13 +1,18 @@
-from typing import Annotated
 import interactions as ipy
 import interactions.ext.enhanced as ipye
 from config import CONFIG
+from errors import global_error_handler
 
 bot = ipy.Client(CONFIG.BOT_TOKEN, intents=ipy.Intents.ALL)
 
 # Load library extensions
 bot.load("interactions.ext.enhanced")
 bot.load("peanuts_bot.middleware.error_handling")
+
+# Apply error handling middleware
+bot.event(global_error_handler, name="on_command_error")
+bot.event(global_error_handler, name="on_component_error")
+bot.event(global_error_handler, name="on_modal_error")
 
 reloadable_extensions = [
     ipy.Choice(name="Role Commands", value="peanuts_bot.extensions.roles"),
