@@ -6,17 +6,22 @@ import interactions as ipy
 logger = logging.getLogger(__name__)
 
 
-def create_component(super_component: t.Callable):
+def component_with_error(super_component: t.Callable) -> t.Callable:
+    """Creates and returns a component decorator that performs error handling
+
+    :param super_component: The originally bound component decorator method
+    :return: An updated component decorator to be bound to the Client object
+    """
+
     def component(
         self: ipy.Client,
         *args,
         **kwargs,
     ) -> t.Callable[[t.Coroutine], t.Coroutine]:
 
-        # `super_component` is already bounded to the `Client` object,
-        # and client will be passed in as first arg to this function,
-        # since it will be bounded to the client. Therefore, we skip
-        # passing in self
+        # This decorator should be bound to the `Client`` object
+        # Since `super_component` should already be bound to the
+        # same object, we skip passing `self` when calling it
         super_decorator = super_component(*args, **kwargs)
 
         def decorator(
@@ -30,7 +35,7 @@ def create_component(super_component: t.Callable):
                 )
 
                 try:
-                    await coro(*args, **kwargs)
+                    return await coro(*args, **kwargs)
                 except:
                     print("MADE IT HERE THO?")
                     if ctx:
@@ -46,7 +51,7 @@ def create_component(super_component: t.Callable):
 
 class ErrorHandler(ipy.Extension):
     """
-    This is the core of this middle, initialized when loading the extension.
+    This is the core of this middleware, initialized when loading the extension.
 
     Improves component error handling by adding enabling a global error handler
 
@@ -68,8 +73,8 @@ class ErrorHandler(ipy.Extension):
         logger.debug("The bot is an instance of Client")
 
         logger.debug("Modifying component callbacks (modify_callbacks)")
-        updated_component = create_component(bot.component)
-        bot.component = types.MethodType(updated_component, bot)
+        component_decorator = component_with_error(bot.component)
+        bot.component = types.MethodType(component_decorator, bot)
 
         # logger.debug("Modifying modal callbacks (modify_callbacks)")
         # bot.modal = types.MethodType(modal, bot)
