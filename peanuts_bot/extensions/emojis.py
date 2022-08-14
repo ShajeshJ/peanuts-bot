@@ -8,7 +8,7 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
-from peanuts_bot.constants.bot import MAX_EMOJI_FILE_SIZE_IN_BYTES, SOMETHING_WRONG
+from peanuts_bot.constants.bot import MAX_EMOJI_FILE_SIZE_IN_BYTES
 from peanuts_bot.libraries.bot_messaging import (
     disable_all_components,
     get_emoji_mention,
@@ -70,8 +70,7 @@ class EmojiExtensions(ipy.Extension):
         """Request to convert an attached image to an emoji"""
 
         if not isinstance(ctx.target, ipy.Message):
-            await ctx.send(SOMETHING_WRONG, ephemeral=True)
-            return
+            raise TypeError("Message command's target must be a message")
 
         images = [a for a in ctx.target.attachments if is_image(a)]
         if len(images) < 1 or len(images) > 5:
@@ -114,17 +113,10 @@ class EmojiExtensions(ipy.Extension):
     async def emoji_from_attachment_modal(self, ctx: ipy.CommandContext, *_):
         """Use the shortcut names to complete the emoji request submissions"""
 
-        if not ctx.data.components:
-            await ctx.send(SOMETHING_WRONG, ephemeral=True)
-            return
-
         outcomes = []
 
         for row in ctx.data.components:
             # each row in a modal has just the single text field
-            if not row.components:
-                await ctx.send(SOMETHING_WRONG, ephemeral=True)
-
             field: ipy.Component = row.components[0]
             tracking_id = field.custom_id.replace(SHORTCUT_TEXT_PREFIX, "")
             shortcut = field.value
@@ -208,10 +200,6 @@ class EmojiExtensions(ipy.Extension):
     @ipy.extension_modal(MODAL_REJECT_EMOJI_PREFIX, startswith=True)
     async def reject_emoji_modal(self, ctx: ipy.CommandContext):
         """Callback after admin filled out error reason for an emoji rejection"""
-
-        if not ctx.data.components:
-            await ctx.send(SOMETHING_WRONG, ephemeral=True)
-            return
 
         reason = ctx.data.components[0].components[0].value
 

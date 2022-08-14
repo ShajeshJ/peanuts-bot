@@ -5,7 +5,6 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
-from peanuts_bot.constants.bot import SOMETHING_WRONG
 
 __all__ = ["setup", "RolesExtension"]
 
@@ -118,13 +117,6 @@ class RolesExtension(ipy.Extension):
     async def toggle_role(self, ctx: ipy.ComponentContext):
         """Callback after a selection is made on a join/leave dropdown"""
         role_names = ctx.data.values
-
-        raise Exception("Proving Global Error Handling Middleware")
-
-        if not role_names:
-            logger.warning(f"Toggle role callback called without role values...")
-            await ctx.send(SOMETHING_WRONG, ephemeral=True)
-            return
 
         user_is_joining = ctx.custom_id.lower().endswith("join")
         logger.info(
