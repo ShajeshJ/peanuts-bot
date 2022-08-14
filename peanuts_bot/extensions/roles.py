@@ -5,6 +5,7 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
+from peanuts_bot.errors import BotUsageError
 
 __all__ = ["setup", "RolesExtension"]
 
@@ -33,8 +34,7 @@ class RolesExtension(ipy.Extension):
         """Create a new mention role that others can join"""
 
         if any(r.name == name for r in await ctx.guild.get_all_roles()):
-            await ctx.send(f"The role {name} already exists", ephemeral=True)
-            return
+            raise BotUsageError(f"The role {name} already exists")
 
         role = await ctx.guild.create_role(
             name=name,
@@ -56,15 +56,11 @@ class RolesExtension(ipy.Extension):
     ):
         """Request to delete a mentionable role"""
         if not is_joinable(role):
-            await ctx.send(f"You cannot request to delete this role", ephemeral=True)
-            return
+            raise BotUsageError(f"You cannot request to delete this role")
 
         for user in await ctx.guild.get_all_members():
             if role.id in user.roles and user.id != ctx.author.id:
-                await ctx.send(
-                    f"There are 1 or more people still in this role", ephemeral=True
-                )
-                return
+                raise BotUsageError(f"There are 1 or more people still in this role")
 
         await ctx.guild.delete_role(
             role, f"Deleted by {ctx.author.name} via bot commands"
@@ -81,8 +77,7 @@ class RolesExtension(ipy.Extension):
             if is_joinable(role) and role.id not in ctx.author.roles
         ]
         if not options:
-            await ctx.send("There are no new roles you can join", ephemeral=True)
-            return
+            raise BotUsageError("There are no new roles you can join")
 
         role_dropdown = ipy.SelectMenu(
             custom_id=f"{ROLE_TOGGLE_PREFIX}join",
@@ -102,8 +97,7 @@ class RolesExtension(ipy.Extension):
             if is_joinable(role) and role.id in ctx.author.roles
         ]
         if not options:
-            await ctx.send("There are no roles you can leave", ephemeral=True)
-            return
+            raise BotUsageError("There are no roles you can leave")
 
         role_dropdown = ipy.SelectMenu(
             custom_id=f"{ROLE_TOGGLE_PREFIX}leave",
