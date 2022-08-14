@@ -4,6 +4,7 @@ import interactions as ipy
 import interactions.ext.enhanced as ipye
 
 from config import CONFIG
+from peanuts_bot.errors import BotUsageError
 
 __all__ = ["setup", "RolesExtension"]
 
@@ -45,8 +46,7 @@ class ChannelsExtension(ipy.Extension):
             None,
         )
         if existing_channel:
-            await ctx.send(f"{existing_channel.mention} already exists", ephemeral=True)
-            return
+            raise BotUsageError(f"{existing_channel.mention} already exists")
 
         channel = await ctx.guild.create_channel(
             name,

@@ -73,9 +73,7 @@ class EmojiExtensions(ipy.Extension):
 
         images = [a for a in ctx.target.attachments if is_image(a)]
         if len(images) < 1 or len(images) > 5:
-            raise BotUsageError(
-                "Message must contain between 1 to 5 attachments", ephemeral=True
-            )
+            raise BotUsageError("Message must contain between 1 to 5 attachments")
 
         text_fields = []
 
