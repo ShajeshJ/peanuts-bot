@@ -24,6 +24,8 @@ def component_with_error(super_component: t.Callable) -> t.Callable:
         # same object, we skip passing `self` when calling it
         super_decorator = super_component(*args, **kwargs)
 
+        _dispatcher = self._websocket._dispatch
+
         def decorator(
             coro: t.Callable[..., t.Coroutine]
         ) -> t.Callable[..., t.Coroutine]:
@@ -36,10 +38,13 @@ def component_with_error(super_component: t.Callable) -> t.Callable:
 
                 try:
                     return await coro(*args, **kwargs)
-                except:
-                    print("MADE IT HERE THO?")
-                    if ctx:
-                        await ctx.send("WE MADE IT BOYYYSS", ephemeral=True)
+                except Exception as e:
+                    if "on_component_error" in _dispatcher.events and ctx:
+                        logger.debug("`on_component_error` triggered")
+                        _dispatcher.dispatch("on_component_error", ctx, e)
+                        return
+
+                    logger.debug("`on_component_error` skipped")
                     raise
 
             return super_decorator(coro_with_errors)
@@ -79,7 +84,7 @@ class ErrorHandler(ipy.Extension):
         # logger.debug("Modifying modal callbacks (modify_callbacks)")
         # bot.modal = types.MethodType(modal, bot)
 
-        logger.info("Hooks applied")
+        logger.info("Error handling hooks applied")
 
 
 def setup(bot: ipy.Client) -> ErrorHandler:
