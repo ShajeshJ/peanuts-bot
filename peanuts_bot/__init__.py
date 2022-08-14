@@ -1,7 +1,7 @@
 import interactions as ipy
 import interactions.ext.enhanced as ipye
 from config import CONFIG
-from errors import global_error_handler
+from peanuts_bot.errors import global_error_handler
 
 bot = ipy.Client(CONFIG.BOT_TOKEN, intents=ipy.Intents.ALL)
 
