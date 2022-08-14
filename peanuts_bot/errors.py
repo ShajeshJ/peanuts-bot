@@ -4,7 +4,7 @@ from peanuts_bot.constants.bot import SOMETHING_WRONG
 
 
 class BotUsageError(Exception):
-    """An exception to raise when you want to surface user error messages"""
+    """An exception to raise when you want to surface a specific user error messages"""
 
     pass
 
