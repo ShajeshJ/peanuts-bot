@@ -17,6 +17,12 @@ from peanuts_bot.libraries.bot_messaging import (
     get_emoji_mention,
 )
 from peanuts_bot.libraries import storage
+from peanuts_bot.libraries.image import (
+    ImageType,
+    is_image,
+    get_image_url,
+    get_image_metadata,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -37,9 +43,11 @@ class EmojiRequest:
     """
 
     shortcut: str | None
-    emoji: ipy.Attachment
-    requester: ipy.Member
-    channel: ipy.Channel
+    url: str
+    file_type: ImageType
+    file_len: int
+    requester_id: int
+    channel_id: int
     _id: str = field(default_factory=lambda: uuid4().hex)
 
 
@@ -61,7 +69,24 @@ class EmojiExtensions(ipy.Extension):
 
         emoji: ipy.Attachment = emoji
 
-        await _request_emoji(shortcut, emoji, ctx)
+        if not is_image(emoji):
+            raise BotUsageError(
+                f"Not a valid file. Emoji images must be png, jpeg, or gif files."
+            )
+
+        url = get_image_url(emoji)
+        content_type, content_length = await get_image_metadata(url)
+
+        req = EmojiRequest(
+            shortcut=shortcut,
+            url=url,
+            file_type=content_type,
+            file_len=content_length,
+            requester_id=ctx.author.id,
+            channel_id=ctx.channel.id,
+        )
+
+        await _request_emoji(req, ctx)
         await ctx.send("Emoji request sent", ephemeral=True)
 
     @ipy.extension_message_command(name="Convert to Emoji", scope=CONFIG.GUILD_ID)
@@ -71,14 +96,26 @@ class EmojiExtensions(ipy.Extension):
         if not isinstance(ctx.target, ipy.Message):
             raise TypeError("Message command's target must be a message")
 
-        images = [a for a in ctx.target.attachments if is_image(a)]
+        images = [
+            i for i in ctx.target.attachments + ctx.target.embeds if await is_image(i)
+        ]
         if len(images) < 1 or len(images) > 5:
             raise BotUsageError("Message must contain between 1 to 5 attachments")
 
         text_fields = []
 
         for i, img in enumerate(images):
-            req = EmojiRequest(None, img, ctx.author, ctx.channel)
+            url = get_image_url(img)
+            content_type, content_length = await get_image_metadata(url)
+
+            req = EmojiRequest(
+                shortcut=None,
+                url=url,
+                file_type=content_type,
+                file_len=content_length,
+                requester_id=ctx.author.id,
+                channel_id=ctx.channel.id,
+            )
             storage.put(req._id, req)
             tracking_id = req._id
 
@@ -122,7 +159,8 @@ class EmojiExtensions(ipy.Extension):
                 continue
 
             req: EmojiRequest = storage.get(tracking_id)
-            outcomes.append(_request_emoji(shortcut, req.emoji, ctx))
+            req.shortcut = shortcut
+            outcomes.append(_request_emoji(req, ctx))
 
         if not outcomes:
             await ctx.send("No emoji requests sent", ephemeral=True)
@@ -166,18 +204,15 @@ class EmojiExtensions(ipy.Extension):
 
         # Refresh potentially stale objects using id
         channel = await ipy.get(
-            self.client, ipy.Channel, object_id=emoji_request.channel.id
+            self.client, ipy.Channel, object_id=emoji_request.channel_id
         )
         requester = await ipy.get(
-            self.client, ipy.User, object_id=emoji_request.requester.id
+            self.client, ipy.User, object_id=emoji_request.requester_id
         )
         guild = next(g for g in self.client.guilds if g.id == CONFIG.GUILD_ID)
 
-        async with aiohttp.request("GET", emoji_request.emoji.url) as res:
-            filename = emoji_request.emoji.filename
-            if filename.endswith(".jpg"):
-                # Seems like `interactions-py` library has a bug where it doesn't support `.jpg` ending
-                filename = filename[:-4] + ".jpeg"
+        async with aiohttp.request("GET", emoji_request.url) as res:
+            filename = f"{emoji_request.shortcut}{emoji_request.file_type.extension}"
 
             emoji = await guild.create_emoji(
                 ipy.Image(filename, await res.content.read()),
@@ -225,10 +260,10 @@ class EmojiExtensions(ipy.Extension):
 
         # Refresh potentially stale objects using id
         channel = await ipy.get(
-            self.client, ipy.Channel, object_id=emoji_request.channel.id
+            self.client, ipy.Channel, object_id=emoji_request.channel_id
         )
         requester = await ipy.get(
-            self.client, ipy.User, object_id=emoji_request.requester.id
+            self.client, ipy.User, object_id=emoji_request.requester_id
         )
 
         await channel.send(
@@ -238,38 +273,31 @@ class EmojiExtensions(ipy.Extension):
 
 
 async def _request_emoji(
-    name: str,
-    emoji: ipy.Attachment,
-    ctx: ipy.CommandContext | ipy.ComponentContext,
+    req: EmojiRequest, ctx: ipy.CommandContext | ipy.ComponentContext
 ):
     """
     Sends a emoji creation request to the guild's Admin User
 
-    :param name: The name requested to give the emoji
-    :param emoji: The image attachment of the emoji
+    :param req: The emoji request to be made
     :param ctx: The current command context
 
     :return: If the emoji could not be added, the string returned is the rejection reason.
     """
-    logger.debug(f"Emoji command file type {emoji.content_type}")
-
-    if not is_image(emoji):
+    logger.debug(f"File type: {req.file_type}")
+    if not is_valid_emoji_type(req.file_type):
         raise BotUsageError(
-            f"{emoji.filename} is not a valid file. Emoji images must be png, jpeg, or gif files."
+            "Not a valid file. Emoji images must be png, jpeg, or gif files."
         )
 
-    logger.debug(f"File size: {emoji.size}")
-    if emoji.size > MAX_EMOJI_FILE_SIZE_IN_BYTES:
+    logger.debug(f"File size: {req.file_len}")
+    if req.file_len > MAX_EMOJI_FILE_SIZE_IN_BYTES:
+        raise BotUsageError(f"File is too large. Emoji images must be < 2MB")
+
+    if not req.shortcut or not is_valid_shortcut(req.shortcut):
         raise BotUsageError(
-            f"{emoji.filename} is too large to be an emoji. Emoji images must be < 2MB"
+            f"{req.shortcut} is not a valid shortcut. Emoji Shortcuts must be alphanumeric or underscore characters only."
         )
 
-    if not is_valid_shortcut(name):
-        raise BotUsageError(
-            f"{name} is not a valid shortcut. Emoji Shortcuts must be alphanumeric or underscore characters only."
-        )
-
-    req = EmojiRequest(name, emoji, ctx.author, ctx.channel)
     storage.put(req._id, req)
     tracking_id = req._id
 
@@ -287,14 +315,13 @@ async def _request_emoji(
 
     admin_user = await ctx.guild.get_member(CONFIG.ADMIN_USER_ID)
     await admin_user.send(
-        f"{ctx.author.name} requested to create the emoji {emoji.url} with the shortcut '{name}'",
+        f"{ctx.author.name} requested to create the emoji {req.url} with the shortcut '{req.shortcut}'",
         components=[yes_btn, no_btn],
     )
 
 
-def is_image(attachment: ipy.Attachment) -> bool:
-    """Indicates if a given attachment file is an image attachment"""
-    return attachment.content_type in ["image/png", "image/jpeg", "image/gif"]
+def is_valid_emoji_type(_type: ImageType) -> bool:
+    return _type in [ImageType.JPEG, ImageType.PNG, ImageType.GIF]
 
 
 def is_valid_shortcut(shortcut: str) -> bool:
