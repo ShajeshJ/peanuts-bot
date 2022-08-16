@@ -1,6 +1,7 @@
 import logging
 import types
 import typing as t
+import functools
 import interactions as ipy
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,9 @@ def component_with_error(super_component: t.Callable) -> t.Callable:
 
                     logger.debug("`on_component_error` skipped")
                     raise
+
+            # To maintain previous function name/docstrings
+            coro_with_errors = functools.update_wrapper(coro_with_errors, coro)
 
             return super_decorator(coro_with_errors)
 
@@ -94,6 +98,9 @@ def modal_with_error(super_modal: t.Callable) -> t.Callable:
 
                     logger.debug("`on_modal_error` skipped")
                     raise
+
+            # To maintain previous function name/docstrings
+            coro_with_errors = functools.update_wrapper(coro_with_errors, coro)
 
             return super_decorator(coro_with_errors)
 
