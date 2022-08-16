@@ -96,9 +96,7 @@ class EmojiExtensions(ipy.Extension):
         if not isinstance(ctx.target, ipy.Message):
             raise TypeError("Message command's target must be a message")
 
-        images = [
-            i for i in ctx.target.attachments + ctx.target.embeds if await is_image(i)
-        ]
+        images = [i for i in ctx.target.attachments + ctx.target.embeds if is_image(i)]
         if len(images) < 1 or len(images) > 5:
             raise BotUsageError("Message must contain between 1 to 5 attachments")
 
@@ -119,10 +117,7 @@ class EmojiExtensions(ipy.Extension):
             storage.put(req._id, req)
             tracking_id = req._id
 
-            label = f'Emoji name to give "{img.filename}"'
-            if len(label) > 45:
-                # Discord has label limit of 45
-                label = f"Emoji name to give to image {i}"
+            label = f"Emoji name to give to image {i+1}"
 
             text_fields.append(
                 ipy.TextInput(
@@ -223,7 +218,7 @@ class EmojiExtensions(ipy.Extension):
                 f"{requester.mention} emoji {get_emoji_mention(emoji)} was created"
             )
 
-        components = disable_all_components(ctx.data.components)
+        components = disable_all_components(ctx.message.components)
 
         await ctx.edit(components=components)
 
@@ -266,10 +261,16 @@ class EmojiExtensions(ipy.Extension):
             self.client, ipy.User, object_id=emoji_request.requester_id
         )
 
+        # Original message with Approve/Deny buttons
+        request_msg = ctx.message
+
         await channel.send(
             f'{requester.mention} your emoji "{emoji_request.shortcut}" was rejected with reason:\n> {reason}'
         )
         await ctx.send("Rejection response sent", ephemeral=True)
+
+        components = disable_all_components(request_msg.components)
+        await request_msg.edit(components=components)
 
 
 async def _request_emoji(
