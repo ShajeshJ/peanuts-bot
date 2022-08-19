@@ -34,12 +34,6 @@ def get_image_url(obj: ipy.Attachment | ipy.Embed):
     if not is_image(obj):
         raise ValueError(f"{obj} does not contain image content")
 
-    # if isinstance(obj, ipy.Attachment):
-    #     return obj.proxy_url
-
-    # if obj.thumbnail:
-    #     return obj.thumbnail.proxy_url or obj.thumbnail.url
-
     return obj.url
 
 
