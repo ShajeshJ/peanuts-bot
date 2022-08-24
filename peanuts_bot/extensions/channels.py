@@ -28,7 +28,7 @@ class ChannelsExtension(ipy.Extension):
             str, ipye.EnhancedOption(str, description="The name of the new channel")
         ],
         category: Annotated[
-            ipy.Channel | None,
+            ipy.Channel,
             ipye.EnhancedOption(
                 ipy.Channel,
                 description="Category to nest the channel under",
