@@ -1,3 +1,4 @@
+from typing import Annotated
 import interactions as ipy
 import interactions.ext.enhanced as ipye
 from config import CONFIG
@@ -31,9 +32,14 @@ if CONFIG.IS_LOCAL:
     @ipye.setup_options
     async def reload(
         ctx: ipy.CommandContext,
-        ext: ipye.EnhancedOption(
-            str, description="The extension to reload", choices=reloadable_extensions
-        ),
+        ext: Annotated[
+            str,
+            ipye.EnhancedOption(
+                str,
+                description="The extension to reload",
+                choices=reloadable_extensions,
+            ),
+        ],
     ):
         """Reload bot commands"""
         if ctx.author.id != CONFIG.ADMIN_USER_ID:
