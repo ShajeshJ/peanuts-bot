@@ -5,7 +5,7 @@ attrs==21.4.0
 charset-normalizer==2.1.0
 colorama==0.4.5 # Unstipulated requirement needed by integrations-py enhanced
 discord-py-interactions==4.3.0
-enhanced @ git+https://github.com/interactions-py/enhanced@9b3631cd4d2b491d0e40763c07b1338264e29458
+enhanced==4.0.0
 frozenlist==1.3.0
 idna==3.3
 multidict==6.0.2
