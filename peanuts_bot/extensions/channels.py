@@ -10,8 +10,6 @@ __all__ = ["setup", "RolesExtension"]
 
 logger = logging.getLogger(__name__)
 
-ipy.Option
-
 
 class ChannelsExtension(ipy.Extension):
     def __init__(self, client: ipy.Client) -> None:
