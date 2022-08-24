@@ -27,11 +27,14 @@ class ChannelsExtension(ipy.Extension):
         name: Annotated[
             str, ipye.EnhancedOption(str, description="The name of the new channel")
         ],
-        category: ipye.EnhancedOption(
-            ipy.Channel,
-            description="Category to nest the channel under",
-            channel_types=[ipy.ChannelType.GUILD_CATEGORY],
-        ) = None,
+        category: Annotated[
+            ipy.Channel | None,
+            ipye.EnhancedOption(
+                ipy.Channel,
+                description="Category to nest the channel under",
+                channel_types=[ipy.ChannelType.GUILD_CATEGORY],
+            ),
+        ] = None,
     ):
         """Create a new text channel"""
 

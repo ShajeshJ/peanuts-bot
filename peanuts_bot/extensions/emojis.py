@@ -64,11 +64,12 @@ class EmojiExtensions(ipy.Extension):
         shortcut: Annotated[
             str, ipye.EnhancedOption(str, description="Shortcut for the emoji")
         ],
-        emoji: ipye.EnhancedOption(ipy.Attachment, description="Image of the emoji"),
+        emoji: Annotated[
+            ipy.Attachment,
+            ipye.EnhancedOption(ipy.Attachment, description="Image of the emoji"),
+        ],
     ):
         """Request a new Emoji to be added"""
-
-        emoji: ipy.Attachment = emoji
 
         if not is_image(emoji):
             raise BotUsageError(
