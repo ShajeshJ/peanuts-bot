@@ -20,7 +20,7 @@ class MessagesExtension(ipy.Extension):
     async def roll(
         self,
         ctx: ipy.CommandContext,
-        roll: Annotated[
+        notation: Annotated[
             str,
             ipye.EnhancedOption(
                 str, description="D&D style dice notation", autocomplete=True
@@ -29,6 +29,11 @@ class MessagesExtension(ipy.Extension):
     ):
         """Perform a dice roll"""
         await ctx.send("Performing main command dice roll")
+
+    @roll.autocomplete("notation")
+    async def notation(self, ctx: ipy.CommandContext, user_input: str = ""):
+        """Autocompletion for the `notation` option for the `roll` command"""
+        await ctx.populate(ipy.Choice(name="1d6+0", value="1d6+0"))
 
 
 def setup(client: ipy.Client):
