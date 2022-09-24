@@ -1,6 +1,9 @@
-import interactions as ipy
+import logging
 
+import interactions as ipy
 from peanuts_bot.constants.bot import SOMETHING_WRONG
+
+logger = logging.getLogger(__name__)
 
 
 class BotUsageError(Exception):
@@ -20,5 +23,9 @@ async def global_error_handler(
         await ctx.send(str(e), ephemeral=True)
         return
 
-    await ctx.send(SOMETHING_WRONG, ephemeral=True)
+    try:
+        await ctx.send(SOMETHING_WRONG, ephemeral=True)
+    except Exception as e:
+        logger.warning(str(e))
+
     raise e

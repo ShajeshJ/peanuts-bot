@@ -1,6 +1,13 @@
 import interactions as ipy
 
 
+class AutoCompletion(ipy.Choice):
+    """Small wrapper to simplify auto completion choices"""
+
+    def __init__(self, val: str):
+        super().__init__(name=val, value=val)
+
+
 def disable_all_components(
     component_rows: list[ipy.ActionRow] | None,
 ) -> list[ipy.ActionRow] | None:
