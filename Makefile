@@ -3,6 +3,9 @@ venv_activate := . $(venv_dir)/bin/activate
 req_file := requirements.txt
 dev_req_file := requirements-dev.txt
 
+create_env_file:
+	touch .env
+
 create_venv:
 	python -m venv $(venv_dir)
 
@@ -10,7 +13,7 @@ pip_install:
 	$(venv_activate) && \
 	pip install -r $(req_file) -r $(dev_req_file)
 
-init: create_venv pip_install
+init: create_env_file create_venv pip_install
 
 list_dep_diff:
 	@-$(venv_activate) && \
