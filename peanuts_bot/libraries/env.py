@@ -15,6 +15,7 @@ def get_inherited_annotations(cls: type):
         if _cls == object:
             continue
 
+        logger.debug(f"Parsing env class {_cls}")
         for env_name, t_annotation in inspect.get_annotations(_cls).items():
             yield env_name, t_annotation
 
