@@ -14,9 +14,7 @@ def get_optional_subtype(t_annotation):
         raise ValueError(f"<{t_annotation}> is not an optional type")
 
     match t_args:
-        case (subtype, types.NoneType):
-            pass
-        case (types.NoneType, subtype):
+        case (subtype, types.NoneType) | (types.NoneType, subtype):
             pass
         case _:
             raise ValueError(f"<{t_annotation}> is not an optional type")
