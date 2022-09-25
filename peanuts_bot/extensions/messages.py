@@ -102,6 +102,34 @@ class MessagesExtension(ipy.Extension):
         """Make the bot say a message"""
         await ctx.send(msg)
 
+    @ipy.extension_command(
+        scope=CONFIG.GUILD_ID, default_member_permissions=ipy.Permissions.ADMINISTRATOR
+    )
+    @ipye.setup_options
+    async def rm(
+        self,
+        ctx: ipy.CommandContext,
+        num_msgs: Annotated[
+            int,
+            ipye.EnhancedOption(
+                int, description="# of messages to delete", min_value=1, max_value=15
+            ),
+        ],
+    ):
+        """Delete the last n messages"""
+        await ctx.defer(ephemeral=True)
+
+        msgs = await ctx.channel.purge(
+            amount=num_msgs,
+            reason=f"Delete via rm command by {ctx.author.name}",
+            bulk=False,
+        )
+
+        await ctx.send(
+            f"{len(msgs)} messages deleted successfully.",
+            ephemeral=True,
+        )
+
 
 def setup(client: ipy.Client):
     MessagesExtension(client)
