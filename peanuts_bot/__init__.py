@@ -29,7 +29,7 @@ for ext in reloadable_extensions:
 
 if CONFIG.IS_LOCAL:
 
-    @bot.command()
+    @bot.command(default_member_permissions=ipy.Permissions.ADMINISTRATOR)
     @ipye.setup_options
     async def reload(
         ctx: ipy.CommandContext,
@@ -43,8 +43,5 @@ if CONFIG.IS_LOCAL:
         ],
     ):
         """Reload bot commands"""
-        if ctx.author.id != CONFIG.ADMIN_USER_ID:
-            return
-
         bot.reload(ext, remove_commands=False)
         await ctx.send(f"{ext} reloaded", ephemeral=True)

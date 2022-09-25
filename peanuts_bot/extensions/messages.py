@@ -88,6 +88,20 @@ class MessagesExtension(ipy.Extension):
 
         await ctx.populate(AutoCompletion("invalid notation"))
 
+    @ipy.extension_command(
+        scope=CONFIG.GUILD_ID, default_member_permissions=ipy.Permissions.ADMINISTRATOR
+    )
+    @ipye.setup_options
+    async def say(
+        self,
+        ctx: ipy.CommandContext,
+        msg: Annotated[
+            str, ipye.EnhancedOption(str, description="Message for the bot to say")
+        ],
+    ):
+        """Make the bot say a message"""
+        await ctx.send(msg)
+
 
 def setup(client: ipy.Client):
     MessagesExtension(client)
