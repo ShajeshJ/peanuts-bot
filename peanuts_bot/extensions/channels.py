@@ -6,7 +6,7 @@ import interactions.ext.enhanced as ipye
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
 
-__all__ = ["setup", "RolesExtension"]
+__all__ = ["setup", "ChannelsExtension"]
 
 logger = logging.getLogger(__name__)
 
