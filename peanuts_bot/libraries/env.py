@@ -9,6 +9,17 @@ from peanuts_bot.libraries.types_ext import get_optional_subtype
 logger = logging.getLogger(__name__)
 
 
+def get_inherited_annotations(cls: type):
+    """Return type annotations, including from any inherited classes"""
+    for _cls in cls.mro():
+        if _cls == object:
+            continue
+
+        logger.debug(f"Parsing env class {_cls}")
+        for env_name, t_annotation in inspect.get_annotations(_cls).items():
+            yield env_name, t_annotation
+
+
 class EnvLoader:
     __loader_locked__ = False
 
@@ -24,7 +35,7 @@ class EnvLoader:
         if self.__loader_locked__:
             return
 
-        for env_name, t_annotation in inspect.get_annotations(type(self)).items():
+        for env_name, t_annotation in get_inherited_annotations(type(self)):
             logger.debug(f"Retrieving env var {env_name}")
             is_optional = False
             env_type = t_annotation

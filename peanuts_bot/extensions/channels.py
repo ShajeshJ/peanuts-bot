@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 import interactions as ipy
 import interactions.ext.enhanced as ipye
 

@@ -12,7 +12,7 @@ import interactions.ext.enhanced as ipye
 from config import CONFIG
 from peanuts_bot.constants.bot import MAX_EMOJI_FILE_SIZE_IN_BYTES, SOMETHING_WRONG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.bot_messaging import (
+from peanuts_bot.libraries.discord_bot import (
     disable_all_components,
     get_emoji_mention,
 )
