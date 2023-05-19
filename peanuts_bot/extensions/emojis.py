@@ -16,7 +16,7 @@ from peanuts_bot.libraries.discord_bot import (
     disable_all_components,
     get_emoji_mention,
 )
-from peanuts_bot.libraries import storage
+from peanuts_bot.libraries.storage import Storage
 from peanuts_bot.libraries.image import (
     ImageType,
     is_image,
@@ -50,6 +50,9 @@ class EmojiRequest:
     requester_id: int
     channel_id: int
     _id: str = field(default_factory=lambda: uuid4().hex)
+
+
+STORAGE = Storage[EmojiRequest]()
 
 
 class EmojiExtensions(ipy.Extension):
@@ -115,7 +118,7 @@ class EmojiExtensions(ipy.Extension):
                 requester_id=ctx.author.id,
                 channel_id=ctx.channel.id,
             )
-            storage.put(req._id, req)
+            STORAGE.put(req._id, req)
             tracking_id = req._id
 
             label = f"Emoji name to give to image {i+1}"
@@ -151,10 +154,13 @@ class EmojiExtensions(ipy.Extension):
             shortcut = field.value
 
             if not shortcut:
-                storage.pop(tracking_id)
+                STORAGE.pop(tracking_id)
                 continue
 
-            req: EmojiRequest = storage.get(tracking_id)
+            req = STORAGE.get(tracking_id)
+            if not req:
+                continue
+
             req.shortcut = shortcut
             outcomes.append(_request_emoji(req, ctx))
 
@@ -196,7 +202,7 @@ class EmojiExtensions(ipy.Extension):
         """Callback of an admin approving an emoji"""
 
         tracking_id = ctx.custom_id.replace(APPROVE_EMOJI_PREFIX, "")
-        emoji_request: EmojiRequest = storage.pop(tracking_id)
+        emoji_request = STORAGE.pop(tracking_id)
 
         # Refresh potentially stale objects using id
         channel = await ipy.get(
@@ -252,7 +258,7 @@ class EmojiExtensions(ipy.Extension):
         reason = ctx.data.components[0].components[0].value
 
         tracking_id = ctx.data.custom_id.replace(MODAL_REJECT_EMOJI_PREFIX, "")
-        emoji_request: EmojiRequest = storage.pop(tracking_id)
+        emoji_request = STORAGE.pop(tracking_id)
 
         # Refresh potentially stale objects using id
         channel = await ipy.get(
@@ -300,7 +306,7 @@ async def _request_emoji(
             f"{req.shortcut} is not a valid shortcut. Emoji Shortcuts must be alphanumeric or underscore characters only."
         )
 
-    storage.put(req._id, req)
+    STORAGE.put(req._id, req)
     tracking_id = req._id
 
     yes_btn = ipy.Button(
