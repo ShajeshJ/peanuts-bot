@@ -43,6 +43,6 @@ if CONFIG.IS_LOCAL:
             ),
         ],
     ):
-        """Reload bot commands"""
+        """[ADMIN-ONLY] Reload bot commands"""
         bot.reload(ext, remove_commands=False)
         await ctx.send(f"{ext} reloaded", ephemeral=True)
