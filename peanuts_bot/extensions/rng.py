@@ -9,7 +9,7 @@ from config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.tabletop_roller import DiceRoll, parse_dice_roll
 
-__all__ = ["setup", "MessagesExtension"]
+__all__ = ["setup", "RngExtension"]
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def append_new_result(msg: str, result: str, is_first: bool = False) -> str:
     return f"{msg}\n{result}{('*' if not is_first else '')}\n```"
 
 
-class MessagesExtension(ipy.Extension):
+class RngExtension(ipy.Extension):
     def __init__(self, client: ipy.Client) -> None:
         self.client: ipy.Client = client
 
@@ -154,4 +154,4 @@ class MessagesExtension(ipy.Extension):
 
 
 def setup(client: ipy.Client):
-    MessagesExtension(client)
+    RngExtension(client)
