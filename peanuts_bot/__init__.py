@@ -20,6 +20,7 @@ reloadable_extensions = [
     ipy.Choice(name="Channel Commands", value="peanuts_bot.extensions.channels"),
     ipy.Choice(name="Emoji Commands", value="peanuts_bot.extensions.emojis"),
     ipy.Choice(name="Message Commands", value="peanuts_bot.extensions.messages"),
+    ipy.Choice(name="User Commands", value="peanuts_bot.extensions.users"),
 ]
 
 # Load bot extensions
