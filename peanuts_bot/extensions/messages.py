@@ -5,11 +5,7 @@ import interactions.ext.enhanced as ipye
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.discord_bot import (
-    DiscordMessageLink,
-    get_by_id,
-    get_discord_msg_links,
-)
+from peanuts_bot.libraries.discord_bot import get_discord_msg_urls
 
 __all__ = ["setup", "MessagesExtension"]
 
@@ -73,40 +69,49 @@ class MessagesExtension(ipy.Extension):
         ],
     ):
         """Quote a message"""
-        try:
-            parsed_link = DiscordMessageLink.from_url(link)
-        except ValueError:
-            raise BotUsageError("Invalid message link")
 
-        embed = await self._create_quote_embed(parsed_link, ctx.guild)
-        if not embed:
+        try:
+            message = await ipy.Message.get_from_url(link, self.client._http)
+        except ipy.LibraryException as e:
+            if e.code == 12:
+                raise BotUsageError("Invalid message link") from e
+            raise
+
+        quote_as_embed = await self._create_quote_embed(message)
+        if not quote_as_embed:
             raise BotUsageError("Unable to quote the given message link")
 
-        await ctx.send(embeds=embed)
+        await ctx.send(embeds=quote_as_embed)
 
     @ipy.extension_listener(name="on_message_create")
     async def auto_quote(self, msg: ipy.Message):
         """Automatically quote any messages that contain a discord message link"""
-        embed, guild = None, await msg.get_guild()
-        for link in get_discord_msg_links(msg.content):
-            if embed := await self._create_quote_embed(link, guild):
-                break
 
-        if not embed:
+        if not msg.guild_id and msg.guild_id != CONFIG.GUILD_ID:
             return
 
-        await msg.reply(embeds=embed)
+        quote_as_embed = None
 
-    async def _create_quote_embed(
-        self, link: DiscordMessageLink, guild: ipy.Guild
-    ) -> ipy.Embed | None:
-        """Construct an embed quote from a message link"""
+        for url in get_discord_msg_urls(msg.content):
+            try:
+                quoted_msg = await ipy.Message.get_from_url(url, self.client._http)
+            except ipy.LibraryException:
+                logger.debug(
+                    "url regex found match but library get the message from the url",
+                    exc_info=True,
+                )
+                continue
 
-        if link.guild_id != guild.id != CONFIG.GUILD_ID:
-            return None
+            if quote_as_embed := await self._create_quote_embed(quoted_msg):
+                break
 
-        channel = get_by_id(link.channel_id, guild.channels)
-        msg = await channel.get_message(link.message_id)
+        if not quote_as_embed:
+            return
+
+        await msg.reply(embeds=quote_as_embed)
+
+    async def _create_quote_embed(self, msg: ipy.Message) -> ipy.Embed | None:
+        """Construct an embed quote from a message object"""
 
         embed = ipy.Embed()
 
@@ -133,10 +138,10 @@ class MessagesExtension(ipy.Extension):
         embed.description = msg.content
         if embed.description:
             embed.description += "\n\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\n"
-        embed.description += f"[**View Original**]({str(link)})"
+        embed.description += f"[**View Original**]({str(msg.url)})"
 
         # Set footer with origin channel and message timestamp
-        embed.set_footer(text=f"in #{channel.name}")
+        embed.set_footer(text=f"in #{(await msg.get_channel()).name}")
         embed.timestamp = msg.edited_timestamp or msg.timestamp
 
         return embed
