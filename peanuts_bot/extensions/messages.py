@@ -125,9 +125,9 @@ class MessagesExtension(ipy.Extension):
                 break
 
         if not embed.image:
-            imageEmbed = next((e for e in msg.embeds if e.type == "image"), None)
-            if imageEmbed and imageEmbed.url:
-                embed.set_image(url=imageEmbed.url)
+            embed_image_url = next((e.image.url for e in msg.embeds if e.image), None)
+            if embed_image_url and embed_image_url:
+                embed.set_image(url=embed_image_url)
 
         # Set quoted message content with a link to the original
         embed.description = msg.content
