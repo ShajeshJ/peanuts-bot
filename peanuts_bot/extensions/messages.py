@@ -5,7 +5,11 @@ import interactions.ext.enhanced as ipye
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.discord_bot import DiscordMessageLink, get_by_id
+from peanuts_bot.libraries.discord_bot import (
+    DiscordMessageLink,
+    get_by_id,
+    get_discord_msg_links,
+)
 
 __all__ = ["setup", "MessagesExtension"]
 
@@ -80,6 +84,19 @@ class MessagesExtension(ipy.Extension):
 
         await ctx.send(embeds=embed)
 
+    @ipy.extension_listener(name="on_message_create")
+    async def auto_quote(self, msg: ipy.Message):
+        """Automatically quote any messages that contain a discord message link"""
+        embed, guild = None, await msg.get_guild()
+        for link in get_discord_msg_links(msg.content):
+            if embed := await self._create_quote_embed(link, guild):
+                break
+
+        if not embed:
+            return
+
+        await msg.reply(embeds=embed)
+
     async def _create_quote_embed(
         self, link: DiscordMessageLink, guild: ipy.Guild
     ) -> ipy.Embed | None:
@@ -99,10 +116,12 @@ class MessagesExtension(ipy.Extension):
             icon_url=msg.author.avatar_url,
         )
 
-        # Add image from either attachments or other embeds on the message
-        for attachment in msg.attachments:
-            if attachment.url.endswith((".png", ".jpg", ".jpeg", ".gif")):
-                embed.set_image(url=attachment.url)
+        # Add image from either attachments or other embeds on the message if possible
+        for attached in msg.attachments:
+            if (
+                attached.content_type and attached.content_type.startswith("image/")
+            ) or attached.url.endswith((".png", ".jpg", ".jpeg", ".gif")):
+                embed.set_image(url=attached.url)
                 break
 
         if not embed.image:
