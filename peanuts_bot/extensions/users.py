@@ -1,6 +1,8 @@
 import logging
 import interactions as ipy
 
+from config import CONFIG
+
 __all__ = ["setup", "UsersExtension"]
 
 logger = logging.getLogger(__name__)
@@ -16,6 +18,9 @@ class UsersExtension(ipy.Extension):
     @ipy.extension_listener(name="on_raw_guild_member_update")
     async def add_username_to_nickname(self, member: ipy.GuildMember):
         """Updates a user's nickname to ensure that it contains their username"""
+
+        if member.guild_id != CONFIG.GUILD_ID:
+            return
 
         username, old_nick = member.user.username, member.nick
 
