@@ -1,49 +1,62 @@
 from typing import Annotated
 import interactions as ipy
-import interactions.ext.enhanced as ipye
 from config import CONFIG
-from peanuts_bot.errors import global_error_handler
 
-bot = ipy.Client(CONFIG.BOT_TOKEN, intents=ipy.Intents.ALL)
+# from peanuts_bot.errors import global_error_handler
 
-# Load library extensions
-bot.load("interactions.ext.enhanced")
-bot.load("peanuts_bot.middleware.error_handling")
+# # Load library extensions
+# bot.load_extension("peanuts_bot.middleware.error_handling")
 
-# Apply error handling middleware
-bot.event(global_error_handler, name="on_command_error")
-bot.event(global_error_handler, name="on_component_error")
-bot.event(global_error_handler, name="on_modal_error")
+# # Apply error handling middleware
+# bot.event(global_error_handler, name="on_command_error")
+# bot.event(global_error_handler, name="on_component_error")
+# bot.event(global_error_handler, name="on_modal_error")
 
-reloadable_extensions = [
-    ipy.Choice(name="Role Commands", value="peanuts_bot.extensions.roles"),
-    ipy.Choice(name="Channel Commands", value="peanuts_bot.extensions.channels"),
-    ipy.Choice(name="Emoji Commands", value="peanuts_bot.extensions.emojis"),
-    ipy.Choice(name="RNG Commands", value="peanuts_bot.extensions.rng"),
-    ipy.Choice(name="User Commands", value="peanuts_bot.extensions.users"),
-    ipy.Choice(name="Message Commands", value="peanuts_bot.extensions.messages"),
+reloadable_extensions: list[ipy.SlashCommandChoice] = [
+    # ipy.SlashCommandChoice(name="Role Commands", value="peanuts_bot.extensions.roles"),
+    # ipy.SlashCommandChoice(
+    #     name="Channel Commands", value="peanuts_bot.extensions.channels"
+    # ),
+    # ipy.SlashCommandChoice(
+    #     name="Emoji Commands", value="peanuts_bot.extensions.emojis"
+    # ),
+    # ipy.SlashCommandChoice(name="RNG Commands", value="peanuts_bot.extensions.rng"),
+    # ipy.SlashCommandChoice(name="User Commands", value="peanuts_bot.extensions.users"),
+    # ipy.SlashCommandChoice(
+    #     name="Message Commands", value="peanuts_bot.extensions.messages"
+    # ),
 ]
 
-# Load bot extensions
-for ext in reloadable_extensions:
-    bot.load(ext.value)
+
+# if CONFIG.IS_LOCAL:
 
 
-if CONFIG.IS_LOCAL:
-
-    @bot.command(default_member_permissions=ipy.Permissions.ADMINISTRATOR)
-    @ipye.setup_options
+class PeanutsBot(ipy.Client):
+    @ipy.slash_command(
+        scopes=[CONFIG.GUILD_ID],
+        default_member_permissions=ipy.Permissions.ADMINISTRATOR,
+    )
     async def reload(
-        ctx: ipy.CommandContext,
+        self,
+        ctx: ipy.SlashContext,
         ext: Annotated[
             str,
-            ipye.EnhancedOption(
-                str,
+            ipy.slash_str_option(
+                required=True,
                 description="The extension to reload",
                 choices=reloadable_extensions,
             ),
         ],
     ):
         """[ADMIN-ONLY] Reload bot commands"""
-        bot.reload(ext, remove_commands=False)
+        # bot.reload_extension(ext)
         await ctx.send(f"{ext} reloaded", ephemeral=True)
+
+
+bot = PeanutsBot(
+    token=CONFIG.BOT_TOKEN, intents=ipy.Intents.ALL, debug_scope=CONFIG.GUILD_ID
+)
+
+# Load bot extensions
+for ext in reloadable_extensions:
+    bot.load_extension(ext.value)
