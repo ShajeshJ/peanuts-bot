@@ -11,6 +11,7 @@ __all__ = ["setup", "RolesExtension"]
 logger = logging.getLogger(__name__)
 
 ROLE_TOGGLE_PREFIX = "role_toggle_"
+_JOINABLE_PERMISSION_SET: ipy.Permissions = ipy.Permissions.NONE
 
 
 class RolesExtension(ipy.Extension):
@@ -35,7 +36,15 @@ class RolesExtension(ipy.Extension):
             name=name,
             mentionable=True,
             reason=f"Created by {ctx.author.username} via bot commands",
-            permissions=get_joinable_permissions(),
+            permissions=_JOINABLE_PERMISSION_SET,
+        )
+
+        # TODO: A hack to get around a bug with `create_role`. Update this when
+        # https://github.com/interactions-py/interactions.py/issues/1420 is fixed
+        await role.edit(
+            name=name,
+            mentionable=True,
+            permissions=_JOINABLE_PERMISSION_SET,
         )
         await ctx.send(f"Created new role {role.mention}")
 
@@ -153,9 +162,5 @@ class RolesExtension(ipy.Extension):
     #         )
 
 
-def get_joinable_permissions() -> ipy.Permissions:
-    return ipy.Permissions.VIEW_CHANNEL
-
-
 def is_joinable(r: ipy.Role) -> bool:
-    return r.mentionable and r.permissions == get_joinable_permissions()
+    return r.mentionable and r.permissions == _JOINABLE_PERMISSION_SET
