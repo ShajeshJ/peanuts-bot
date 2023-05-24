@@ -35,32 +35,28 @@ class RolesExtension(ipy.Extension):
             name=name,
             mentionable=True,
             reason=f"Created by {ctx.author.username} via bot commands",
-            permissions=0,
+            permissions=get_joinable_permissions(),
         )
         await ctx.send(f"Created new role {role.mention}")
 
-    # @role.subcommand()
-    # @ipye.setup_options
-    # async def delete(
-    #     self,
-    #     ctx: ipy.CommandContext,
-    #     role: Annotated[
-    #         ipy.Role,
-    #         ipye.EnhancedOption(ipy.Role, description="The role to be deleted"),
-    #     ],
-    # ):
-    #     """Request to delete a mentionable role"""
-    #     if not is_joinable(role):
-    #         raise BotUsageError(f"You cannot request to delete this role")
+    @role.subcommand()
+    async def delete(
+        self,
+        ctx: ipy.SlashContext,
+        role: Annotated[
+            ipy.Role,
+            ipy.slash_role_option(description="The role to be deleted", required=True),
+        ],
+    ):
+        """Request to delete a mentionable role"""
+        if not is_joinable(role):
+            raise BotUsageError(f"You cannot request to delete this role")
 
-    #     for user in await ctx.guild.get_all_members():
-    #         if role.id in user.roles and user.id != ctx.author.id:
-    #             raise BotUsageError(f"There are 1 or more people still in this role")
+        if any(m for m in role.members if m.id != ctx.author.id):
+            raise BotUsageError(f"There are 1 or more people still in '{role.name}'")
 
-    #     await ctx.guild.delete_role(
-    #         role, f"Deleted by {ctx.author.name} via bot commands"
-    #     )
-    #     await ctx.send(f"Deleted role '{role.name}'")
+        await role.delete(f"Deleted by {ctx.author.username} via bot commands")
+        await ctx.send(f"Deleted role '{role.name}'")
 
     # @role.subcommand()
     # @ipye.setup_options
@@ -157,5 +153,9 @@ class RolesExtension(ipy.Extension):
     #         )
 
 
+def get_joinable_permissions() -> ipy.Permissions:
+    return ipy.Permissions.VIEW_CHANNEL
+
+
 def is_joinable(r: ipy.Role) -> bool:
-    return r.mentionable and r.permissions == "0"
+    return r.mentionable and r.permissions == get_joinable_permissions()
