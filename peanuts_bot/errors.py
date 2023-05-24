@@ -12,20 +12,23 @@ class BotUsageError(Exception):
     pass
 
 
-async def global_error_handler(
-    ctx: ipy.CommandContext | ipy.ComponentContext, e: Exception
-):
+@ipy.listen(disable_default_listeners=True)
+async def on_command_error(event: ipy.events.CommandError):
     """
-    Global error handler for the bot; can be used to handle command and component errors
+    Error handler for all bot commands
     """
+    if not isinstance(event.ctx, ipy.InteractionContext):
+        raise Exception(
+            f"did not get InteractionContext; instead got {type(event.ctx).__name__}"
+        ) from event.error
 
-    if isinstance(e, BotUsageError):
-        await ctx.send(str(e), ephemeral=True)
+    if isinstance(event.error, BotUsageError):
+        await event.ctx.send(str(event.error), ephemeral=True)
         return
 
     try:
-        await ctx.send(SOMETHING_WRONG, ephemeral=True)
+        await event.ctx.send(SOMETHING_WRONG, ephemeral=True)
     except Exception as e:
-        logger.warning(str(e))
+        raise e from event.error
 
-    raise e
+    raise event.error
