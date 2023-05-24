@@ -6,7 +6,7 @@ from config import CONFIG
 logger = logging.getLogger(__name__)
 
 ALL_EXTENSIONS: list[ipy.SlashCommandChoice] = [
-    # ipy.SlashCommandChoice(name="Role Commands", value="peanuts_bot.extensions.roles"),
+    ipy.SlashCommandChoice(name="Role Commands", value="peanuts_bot.extensions.roles"),
     # ipy.SlashCommandChoice(
     #     name="Channel Commands", value="peanuts_bot.extensions.channels"
     # ),
