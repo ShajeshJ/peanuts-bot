@@ -94,14 +94,14 @@ class RolesExtension(ipy.Extension):
 
         invalid_roles = []
         joined_roles = []
-        role_gen = get_valid_roles(
+        roles_to_join = get_valid_roles(
             selected_roles=(split_role_option_value(v) for v in ctx.values),
             ctx=ctx,
             should_skip=lambda ctx, r: ctx.author.has_role(r),
             invalid_role_callback=invalid_roles.append,
         )
 
-        async for role in role_gen:
+        async for role in roles_to_join:
             logger.debug(f"{ctx.author.display_name} attempting to join {role.name}")
             joined_roles.append(role.name)
             await ctx.author.add_role(
@@ -143,14 +143,14 @@ class RolesExtension(ipy.Extension):
 
         invalid_roles = []
         left_roles = []
-        role_gen = get_valid_roles(
+        roles_to_leave = get_valid_roles(
             selected_roles=(split_role_option_value(v) for v in ctx.values),
             ctx=ctx,
             should_skip=lambda ctx, r: not ctx.author.has_role(r),
             invalid_role_callback=invalid_roles.append,
         )
 
-        async for role in role_gen:
+        async for role in roles_to_leave:
             logger.debug(f"{ctx.author.display_name} attempting to leave {role.name}")
             left_roles.append(role.name)
             await ctx.author.remove_role(
