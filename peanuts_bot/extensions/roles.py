@@ -67,45 +67,43 @@ class RolesExtension(ipy.Extension):
         await role.delete(f"Deleted by {ctx.author.username} via bot commands")
         await ctx.send(f"Deleted role '{role.name}'")
 
-    # @role.subcommand()
-    # @ipye.setup_options
-    # async def join(self, ctx: ipy.CommandContext):
-    #     """Add yourself to a mention role"""
-    #     options = [
-    #         ipy.SelectOption(label=role.name, value=role.name)
-    #         for role in await ctx.guild.get_all_roles()
-    #         if is_joinable(role) and role.id not in ctx.author.roles
-    #     ]
-    #     if not options:
-    #         raise BotUsageError("There are no new roles you can join")
+    @role.subcommand()
+    async def join(self, ctx: ipy.SlashContext):
+        """Add yourself to a mention role"""
+        options = [
+            ipy.StringSelectOption(label=role.name, value=role.id)
+            for role in ctx.guild.roles
+            if is_joinable(role) and not ctx.author.has_role(role)
+        ]
+        if not options:
+            raise BotUsageError("There are no new roles you can join")
 
-    #     role_dropdown = ipy.SelectMenu(
-    #         custom_id=f"{ROLE_TOGGLE_PREFIX}join",
-    #         placeholder="Join a mention role",
-    #         max_values=len(options),
-    #         options=options,
-    #     )
-    #     await ctx.send(components=role_dropdown, ephemeral=True)
+        role_dropdown = ipy.StringSelectMenu(
+            *options,
+            custom_id=f"{ROLE_TOGGLE_PREFIX}join",
+            placeholder="Join a mention role",
+            max_values=len(options),
+        )
+        await ctx.send(components=role_dropdown, ephemeral=True)
 
-    # @role.subcommand()
-    # @ipye.setup_options
-    # async def leave(self, ctx: ipy.CommandContext):
-    #     """Remove yourself from a mention role"""
-    #     options = [
-    #         ipy.SelectOption(label=role.name, value=role.name)
-    #         for role in await ctx.guild.get_all_roles()
-    #         if is_joinable(role) and role.id in ctx.author.roles
-    #     ]
-    #     if not options:
-    #         raise BotUsageError("There are no roles you can leave")
+    @role.subcommand()
+    async def leave(self, ctx: ipy.SlashContext):
+        """Remove yourself from a mention role"""
+        options = [
+            ipy.StringSelectOption(label=role.name, value=role.id)
+            for role in ctx.guild.roles
+            if is_joinable(role) and role.id in ctx.author.roles
+        ]
+        if not options:
+            raise BotUsageError("There are no roles you can leave")
 
-    #     role_dropdown = ipy.SelectMenu(
-    #         custom_id=f"{ROLE_TOGGLE_PREFIX}leave",
-    #         placeholder="Leave a mention role",
-    #         max_values=len(options),
-    #         options=options,
-    #     )
-    #     await ctx.send(components=role_dropdown, ephemeral=True)
+        role_dropdown = ipy.StringSelectMenu(
+            *options,
+            custom_id=f"{ROLE_TOGGLE_PREFIX}leave",
+            placeholder="Leave a mention role",
+            max_values=len(options),
+        )
+        await ctx.send(components=role_dropdown, ephemeral=True)
 
     # @ipy.extension_component(ROLE_TOGGLE_PREFIX, startswith=True)
     # async def toggle_role(self, ctx: ipy.ComponentContext):
