@@ -183,7 +183,7 @@ async def get_valid_roles(
     :param selected_roles: The roles selected by the user
     :param ctx: The context of the interaction
     :param should_skip: A function that returns True if the role should be skipped
-    :param invalid_role_callback: A function that is called when a role is invalid
+    :param invalid_role_callback: A function that is called when a role is invalid (e.g. not joinable, does not exist)
     :return: An iterator that yields roles to join/leave
     """
 
