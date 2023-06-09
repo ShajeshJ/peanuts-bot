@@ -1,9 +1,9 @@
 import logging
 
 import interactions as ipy
-from peanuts_bot.constants.bot import SOMETHING_WRONG
 
 logger = logging.getLogger(__name__)
+SOMETHING_WRONG = "Sorry, something went wrong. Try again later."
 
 
 class BotUsageError(Exception):
@@ -13,9 +13,9 @@ class BotUsageError(Exception):
 
 
 @ipy.listen(disable_default_listeners=True)
-async def on_command_error(event: ipy.events.CommandError):
+async def on_error(event: ipy.events.Error):
     """
-    Error handler for all bot commands
+    Fallback global error handler
     """
     if not isinstance(event.ctx, ipy.InteractionContext):
         raise Exception(

@@ -7,6 +7,33 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 
+class ImageSize(int):
+    @property
+    def kb(self):
+        return self / 1024
+
+    @property
+    def mb(self):
+        return self / 1024**2
+
+    @property
+    def gb(self):
+        return self / 1024**3
+
+    def __str__(self) -> str:
+        if self >= 1024**3:
+            return f"{self.gb:.2f}".rstrip("0").rstrip(".") + " GB"
+        elif self >= 1024**2:
+            return f"{self.mb:.2f}".rstrip("0").rstrip(".") + " MB"
+        elif self >= 1024:
+            return f"{self.kb:.2f}".rstrip("0").rstrip(".") + " KB"
+        else:
+            return f"{self} B"
+
+
+MAX_EMOJI_FILE_SIZE = ImageSize(256 * 1024)
+
+
 class ImageType(str, Enum):
     JPEG = "image/jpeg"
     PNG = "image/png"

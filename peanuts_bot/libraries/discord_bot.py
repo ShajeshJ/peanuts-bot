@@ -1,7 +1,5 @@
 from collections.abc import Iterator
-from dataclasses import dataclass
 import re
-from typing import TypeVar
 import interactions as ipy
 
 # Try to match discord message link https://discord.com/channels/<id>/<id>/<id>
@@ -32,21 +30,4 @@ def disable_all_components(
     if component_rows is None:
         return None
 
-    for row in component_rows:
-        if row.components is None:
-            continue
-
-        for component in row.components:
-            component.disabled = True
-
-    return component_rows
-
-
-def get_emoji_mention(emoji: ipy.Emoji) -> str:
-    """
-    Return the mention of an emoji so it can be printed in discord
-
-    :param emoji: The emoji to print
-    :return: A string representing the "mention" value of the emoji
-    """
-    return f"<:{emoji.name}:{emoji.id}>"
+    return ipy.utils.misc_utils.disable_components(*component_rows)

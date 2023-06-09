@@ -17,7 +17,7 @@ _JOINABLE_PERMISSION_SET: ipy.Permissions = ipy.Permissions.NONE
 
 
 class RolesExtension(ipy.Extension):
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID], dm_permission=False)
+    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def role(self, _: ipy.SlashContext):
         pass
 

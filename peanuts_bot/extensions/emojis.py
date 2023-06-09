@@ -7,17 +7,13 @@ import re
 from typing import Annotated
 from uuid import uuid4
 import interactions as ipy
-import interactions.ext.enhanced as ipye
 
 from config import CONFIG
-from peanuts_bot.constants.bot import MAX_EMOJI_FILE_SIZE_IN_BYTES, SOMETHING_WRONG
-from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.discord_bot import (
-    disable_all_components,
-    get_emoji_mention,
-)
+from peanuts_bot.errors import BotUsageError, SOMETHING_WRONG
+from peanuts_bot.libraries.discord_bot import disable_all_components
 from peanuts_bot.libraries.storage import Storage
 from peanuts_bot.libraries.image import (
+    MAX_EMOJI_FILE_SIZE,
     ImageType,
     is_image,
     get_image_url,
@@ -59,19 +55,22 @@ class EmojiExtensions(ipy.Extension):
     def __init__(self, client: ipy.Client) -> None:
         self.client: ipy.Client = client
 
-    @ipy.extension_command(scope=CONFIG.GUILD_ID)
-    @ipye.setup_options
+    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def emoji(
         self,
-        ctx: ipy.CommandContext,
+        ctx: ipy.SlashContext,
         shortcut: Annotated[
-            str, ipye.EnhancedOption(str, description="Shortcut for the emoji")
+            str,
+            ipy.slash_str_option(description="Shortcut for the emoji", required=True),
         ],
-        emoji: ipye.EnhancedOption(ipy.Attachment, description="Image of the emoji"),
+        emoji: Annotated[
+            ipy.Attachment,
+            ipy.slash_attachment_option(
+                description="Image of the emoji", required=True
+            ),
+        ],
     ):
         """Request a new Emoji to be added"""
-
-        emoji: ipy.Attachment = emoji
 
         if not is_image(emoji):
             raise BotUsageError(
@@ -93,8 +92,8 @@ class EmojiExtensions(ipy.Extension):
         await _request_emoji(req, ctx)
         await ctx.send("Emoji request sent", ephemeral=True)
 
-    @ipy.extension_message_command(name="Convert to Emoji", scope=CONFIG.GUILD_ID)
-    async def emoji_from_attachment(self, ctx: ipy.CommandContext):
+    @ipy.message_context_menu(name="Convert to Emoji", scopes=[CONFIG.GUILD_ID])
+    async def emoji_from_attachment(self, ctx: ipy.ContextMenuContext):
         """Request to convert an attached image to an emoji"""
 
         if not isinstance(ctx.target, ipy.Message):
@@ -116,7 +115,7 @@ class EmojiExtensions(ipy.Extension):
                 file_type=content_type,
                 file_len=content_length,
                 requester_id=ctx.author.id,
-                channel_id=ctx.channel.id,
+                channel_id=ctx.channel_id,
             )
             STORAGE.put(req._id, req)
             tracking_id = req._id
@@ -124,34 +123,31 @@ class EmojiExtensions(ipy.Extension):
             label = f"Emoji name to give to image {i+1}"
 
             text_fields.append(
-                ipy.TextInput(
+                ipy.InputText(
                     custom_id=f"{SHORTCUT_TEXT_PREFIX}{tracking_id}",
                     label=label,
-                    style=ipy.TextStyleType.SHORT,
+                    style=ipy.TextStyles.SHORT,
                     placeholder="Leave blank to skip this image",
                     required=False,
                 )
             )
 
-        await ctx.popup(
+        await ctx.send_modal(
             ipy.Modal(
+                *text_fields,
                 custom_id=SHORTCUT_MODAL,
                 title="Emoji Names",
-                components=text_fields,
             )
         )
 
-    @ipy.extension_modal(SHORTCUT_MODAL)
-    async def emoji_from_attachment_modal(self, ctx: ipy.CommandContext, *_):
+    @ipy.modal_callback(SHORTCUT_MODAL)
+    async def emoji_from_attachment_modal(self, ctx: ipy.ModalContext, **_):
         """Use the shortcut names to complete the emoji request submissions"""
 
         outcomes = []
 
-        for row in ctx.data.components:
-            # each row in a modal has just the single text field
-            field: ipy.Component = row.components[0]
-            tracking_id = field.custom_id.replace(SHORTCUT_TEXT_PREFIX, "")
-            shortcut = field.value
+        for custom_id, shortcut in ctx.responses.items():
+            tracking_id = custom_id.replace(SHORTCUT_TEXT_PREFIX, "")
 
             if not shortcut:
                 STORAGE.pop(tracking_id)
@@ -197,92 +193,83 @@ class EmojiExtensions(ipy.Extension):
             ephemeral=True,
         )
 
-    @ipy.extension_component(APPROVE_EMOJI_PREFIX, startswith=True)
+    @ipy.component_callback(re.compile(f"{APPROVE_EMOJI_PREFIX}.*"))
     async def approve_emoji(self, ctx: ipy.ComponentContext):
         """Callback of an admin approving an emoji"""
 
         tracking_id = ctx.custom_id.replace(APPROVE_EMOJI_PREFIX, "")
+        disabled_btns = disable_all_components(ctx.message.components)
         emoji_request = STORAGE.pop(tracking_id)
 
-        # Refresh potentially stale objects using id
-        channel = await ipy.get(
-            self.client, ipy.Channel, object_id=emoji_request.channel_id
+        if not emoji_request:
+            await ctx.message.edit(components=disabled_btns)
+            raise BotUsageError("Unable to find emoji request")
+
+        # user and guild are not likely to go stale, so only force fetch channel
+        channel = await self.bot.fetch_channel(emoji_request.channel_id, force=True)
+        requester = await self.bot.fetch_member(
+            emoji_request.requester_id, CONFIG.GUILD_ID
         )
-        requester = await ipy.get(
-            self.client, ipy.User, object_id=emoji_request.requester_id
-        )
-        guild = next(g for g in self.client.guilds if g.id == CONFIG.GUILD_ID)
+        guild = await self.bot.fetch_guild(CONFIG.GUILD_ID)
 
         async with aiohttp.request("GET", emoji_request.url) as res:
-            filename = f"{emoji_request.shortcut}{emoji_request.file_type.extension}"
-
-            emoji = await guild.create_emoji(
-                ipy.Image(filename, await res.content.read()),
+            emoji = await guild.create_custom_emoji(
                 emoji_request.shortcut,
+                await res.content.read(),
                 reason=f"Created by {requester.username} via bot comands",
             )
-            await channel.send(
-                f"{requester.mention} emoji {get_emoji_mention(emoji)} was created"
-            )
+            await channel.send(f"{requester.mention} emoji {emoji} was created")
 
-        components = disable_all_components(ctx.message.components)
+        await ctx.message.edit(components=disabled_btns)
+        await ctx.send(f"approved emoji {emoji_request.shortcut}", ephemeral=True)
 
-        await ctx.edit(components=components)
-
-    @ipy.extension_component(REJECT_EMOJI_PREFIX, startswith=True)
+    @ipy.component_callback(re.compile(f"{REJECT_EMOJI_PREFIX}.*"))
     async def reject_emoji(self, ctx: ipy.ComponentContext):
         """Callback of an admin rejecting an emoji"""
 
         tracking_id = ctx.custom_id.replace(REJECT_EMOJI_PREFIX, "")
-        await ctx.popup(
+        await ctx.send_modal(
             ipy.Modal(
+                ipy.InputText(
+                    custom_id="emoji_reject_reason",
+                    label="Rejection Reason",
+                    style=ipy.TextStyles.PARAGRAPH,
+                    required=True,
+                    placeholder="Emoji is weirdly sized.",
+                    min_length=1,
+                ),
                 custom_id=f"{MODAL_REJECT_EMOJI_PREFIX}{tracking_id}",
                 title="Reject Emoji",
-                components=[
-                    ipy.TextInput(
-                        custom_id="emoji_reject_reason",
-                        label="Rejection Reason",
-                        style=ipy.TextStyleType.PARAGRAPH,
-                        required=True,
-                        placeholder="Emoji is weirdly sized.",
-                        min_length=1,
-                    )
-                ],
             )
         )
 
-    @ipy.extension_modal(MODAL_REJECT_EMOJI_PREFIX, startswith=True)
-    async def reject_emoji_modal(self, ctx: ipy.CommandContext):
+    @ipy.modal_callback(re.compile(f"{MODAL_REJECT_EMOJI_PREFIX}.*"))
+    async def reject_emoji_modal(self, ctx: ipy.ModalContext, emoji_reject_reason: str):
         """Callback after admin filled out error reason for an emoji rejection"""
 
-        reason = ctx.data.components[0].components[0].value
-
-        tracking_id = ctx.data.custom_id.replace(MODAL_REJECT_EMOJI_PREFIX, "")
+        tracking_id = ctx.custom_id.replace(MODAL_REJECT_EMOJI_PREFIX, "")
+        disabled_btns = disable_all_components(ctx.message.components)
         emoji_request = STORAGE.pop(tracking_id)
 
-        # Refresh potentially stale objects using id
-        channel = await ipy.get(
-            self.client, ipy.Channel, object_id=emoji_request.channel_id
-        )
-        requester = await ipy.get(
-            self.client, ipy.User, object_id=emoji_request.requester_id
-        )
+        if not emoji_request:
+            await ctx.message.edit(components=disabled_btns)
+            raise BotUsageError("Unable to find emoji request")
 
-        # Original message with Approve/Deny buttons
-        request_msg = ctx.message
+        # requester is not likely to go stale, so only force fetch channel
+        channel = await self.bot.fetch_channel(emoji_request.channel_id, force=True)
+        requester = await self.bot.fetch_member(
+            emoji_request.requester_id, CONFIG.GUILD_ID
+        )
 
         await channel.send(
-            f'{requester.mention} your emoji "{emoji_request.shortcut}" was rejected with reason:\n> {reason}'
+            f'{requester.mention} your emoji "{emoji_request.shortcut}" was rejected with reason:\n> {emoji_reject_reason}'
         )
-        await ctx.send("Rejection response sent", ephemeral=True)
+        await ctx.send(f"rejected emoji {emoji_request.shortcut}", ephemeral=True)
 
-        components = disable_all_components(request_msg.components)
-        await request_msg.edit(components=components)
+        await ctx.message.edit(components=disabled_btns)
 
 
-async def _request_emoji(
-    req: EmojiRequest, ctx: ipy.CommandContext | ipy.ComponentContext
-):
+async def _request_emoji(req: EmojiRequest, ctx: ipy.SlashContext | ipy.ModalContext):
     """
     Sends a emoji creation request to the guild's Admin User
 
@@ -294,12 +281,14 @@ async def _request_emoji(
     logger.debug(f"File type: {req.file_type}")
     if not is_valid_emoji_type(req.file_type):
         raise BotUsageError(
-            "Not a valid file. Emoji images must be png, jpeg, or gif files."
+            f"File for '{req.shortcut}' is not valid. Emoji images must be png, jpeg, or gif files."
         )
 
     logger.debug(f"File size: {req.file_len}")
-    if req.file_len > MAX_EMOJI_FILE_SIZE_IN_BYTES:
-        raise BotUsageError(f"File is too large. Emoji images must be < 2MB")
+    if req.file_len > MAX_EMOJI_FILE_SIZE:
+        raise BotUsageError(
+            f"File for '{req.shortcut}' is too large. Emoji images must be < {MAX_EMOJI_FILE_SIZE}"
+        )
 
     if not req.shortcut or not is_valid_shortcut(req.shortcut):
         raise BotUsageError(
@@ -321,9 +310,9 @@ async def _request_emoji(
         custom_id=f"{REJECT_EMOJI_PREFIX}{tracking_id}",
     )
 
-    admin_user = await ctx.guild.get_member(CONFIG.ADMIN_USER_ID)
+    admin_user = await ctx.bot.fetch_user(CONFIG.ADMIN_USER_ID)
     await admin_user.send(
-        f"{ctx.author.name} requested to create the emoji {req.url} with the shortcut '{req.shortcut}'",
+        f"{ctx.author.display_name} requested to create the emoji {req.url} with the shortcut '{req.shortcut}'",
         components=[yes_btn, no_btn],
     )
 

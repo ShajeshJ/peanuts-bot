@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ChannelsExtension(ipy.Extension):
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID], dm_permission=False)
+    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def channel(self, _: ipy.SlashContext):
         pass
 

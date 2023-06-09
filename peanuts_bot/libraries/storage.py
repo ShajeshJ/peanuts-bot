@@ -32,7 +32,7 @@ class Storage(Generic[_VT]):
 
         self._store[key] = value
 
-    def pop(self, key: str) -> _VT:
+    def pop(self, key: str) -> _VT | None:
         """
         Pops the key out of storage and and returns its value
 
