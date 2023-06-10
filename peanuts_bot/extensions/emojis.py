@@ -80,9 +80,6 @@ class EmojiRequest:
 
 
 class EmojiExtensions(ipy.Extension):
-    def __init__(self, client: ipy.Client) -> None:
-        self.client: ipy.Client = client
-
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def emoji(
         self,
@@ -338,7 +335,3 @@ def get_images_from_msg(msg: ipy.Message) -> list[ipy.Attachment | ipy.Embed]:
     if len(images) < 1 or len(images) > 5:
         raise BotUsageError("Message must contain between 1 to 5 attachments")
     return images
-
-
-def setup(client: ipy.Client):
-    EmojiExtensions(client)
