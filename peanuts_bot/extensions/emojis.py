@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 APPROVE_EMOJI_BTN = "approve_emoji_btn"
 REJECT_EMOJI_BTN = "deny_emoji_btn"
-SHORTCUT_MODAL = "shortcut_data_modal"
+SHORTCUT_MODAL_PREFIX = "shortcut_modal_"
 SHORTCUT_TEXT_PREFIX = "shortcut_value_"
 REJECT_EMOJI_MODAL = "reject_emoji_modal"
 
@@ -127,9 +127,7 @@ class EmojiExtensions(ipy.Extension):
         if not isinstance(ctx.target, ipy.Message):
             raise TypeError("Message command's target must be a message")
 
-        images = [i for i in ctx.target.attachments + ctx.target.embeds if is_image(i)]
-        if len(images) < 1 or len(images) > 5:
-            raise BotUsageError("Message must contain between 1 to 5 attachments")
+        images = get_images_from_msg(ctx.target)
 
         text_fields = (
             ipy.InputText(
@@ -141,21 +139,26 @@ class EmojiExtensions(ipy.Extension):
             )
             for i in range(len(images))
         )
-        modal = ipy.Modal(*text_fields, custom_id=SHORTCUT_MODAL, title="Emoji Names")
+        modal = ipy.Modal(
+            *text_fields,
+            custom_id=f"{SHORTCUT_MODAL_PREFIX}{ctx.target_id}",
+            title="Emoji Names",
+        )
         await ctx.send_modal(modal)
 
-        ###########################
-        # Modal Response Handling #
-        ###########################
+    @ipy.modal_callback(re.compile(f"{SHORTCUT_MODAL_PREFIX}.*"))
+    async def emoji_from_attachment_modal(self, ctx: ipy.ModalContext, **_):
+        """Callback after user filled out modal triggered by `emoji_from_attachment`"""
 
-        try:
-            modalCtx = await self.bot.wait_for_modal(modal, ctx.author, timeout=5 * 60)
-        except asyncio.TimeoutError:
-            raise BotUsageError("Timed out waiting for a response. Try again")
+        message_id = int(ctx.custom_id.replace(SHORTCUT_MODAL_PREFIX, ""))
+        msg = await ctx.channel.fetch_message(message_id)
+        if not msg:
+            raise BotUsageError("Message has been deleted")
+        images = get_images_from_msg(msg)
 
-        outcomes = []
+        emoji_requests = []
 
-        for field_id, shortcut in modalCtx.responses.items():
+        for field_id, shortcut in ctx.responses.items():
             if not shortcut:
                 continue
 
@@ -168,24 +171,24 @@ class EmojiExtensions(ipy.Extension):
                 url=url,
                 file_type=content_type,
                 file_len=content_length,
-                requester_id=modalCtx.author.id,
-                channel_id=modalCtx.channel_id,
+                requester_id=ctx.author.id,
+                channel_id=ctx.channel_id,
             )
 
-            outcomes.append(_request_emoji(req, ctx))
+            emoji_requests.append(_request_emoji(req, ctx))
 
-        if not outcomes:
-            await modalCtx.send("No emoji requests sent", ephemeral=True)
+        if not emoji_requests:
+            await ctx.send("No emoji requests sent", ephemeral=True)
             return
 
         errors = [
             e
-            for e in await asyncio.gather(*outcomes, return_exceptions=True)
+            for e in await asyncio.gather(*emoji_requests, return_exceptions=True)
             if isinstance(e, Exception)
         ]
 
         if not errors:
-            await modalCtx.send("Emoji requests sent", ephemeral=True)
+            await ctx.send("Emoji requests sent", ephemeral=True)
             return
 
         system_errors = [e for e in errors if not isinstance(e, BotUsageError)]
@@ -202,7 +205,7 @@ class EmojiExtensions(ipy.Extension):
             f"\n- {str(e) if isinstance(e, BotUsageError) else SOMETHING_WRONG}"
             for e in errors
         ]
-        await modalCtx.send(
+        await ctx.send(
             f"The following errors occurred: {''.join(error_strs)}",
             ephemeral=True,
         )
@@ -329,6 +332,13 @@ def is_valid_emoji_type(_type: ImageType) -> bool:
 def is_valid_shortcut(shortcut: str) -> bool:
     """Indicates if the given emoji shortcut is valid"""
     return len(shortcut) >= 2 and re.fullmatch(r"^[a-zA-Z0-9_]+$", shortcut)
+
+
+def get_images_from_msg(msg: ipy.Message) -> list[ipy.Attachment | ipy.Embed]:
+    images = [i for i in msg.attachments + msg.embeds if is_image(i)]
+    if len(images) < 1 or len(images) > 5:
+        raise BotUsageError("Message must contain between 1 to 5 attachments")
+    return images
 
 
 def setup(client: ipy.Client):
