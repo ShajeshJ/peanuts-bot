@@ -206,8 +206,7 @@ class EmojiExtensions(ipy.Extension):
             for e in errors
         ]
         await ctx.send(
-            f"The following errors occurred: {''.join(error_strs)}",
-            ephemeral=True,
+            f"The following errors occurred: {''.join(error_strs)}", ephemeral=True
         )
 
     @ipy.component_callback(APPROVE_EMOJI_BTN)
