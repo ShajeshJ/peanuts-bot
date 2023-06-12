@@ -3,7 +3,7 @@ import interactions as ipy
 
 from config import CONFIG
 
-__all__ = ["setup", "UsersExtension"]
+__all__ = ["UsersExtension"]
 
 logger = logging.getLogger(__name__)
 
@@ -12,16 +12,14 @@ _MODIFY_MEMBER_SAFE_ERROR_CODES = [50013]
 
 
 class UsersExtension(ipy.Extension):
-    def __init__(self, client: ipy.Client) -> None:
-        self.client: ipy.Client = client
-
-    @ipy.extension_listener(name="on_raw_guild_member_update")
-    async def add_username_to_nickname(self, member: ipy.GuildMember):
+    @ipy.listen("on_member_update", delay_until_ready=True)
+    async def add_username_to_nickname(self, event: ipy.events.MemberUpdate):
         """Updates a user's nickname to ensure that it contains their username"""
 
-        if member.guild_id != CONFIG.GUILD_ID:
+        if event.guild_id != CONFIG.GUILD_ID:
             return
 
+        member = event.after
         username, old_nick = member.user.username, member.nick
 
         if old_nick is None:
@@ -37,8 +35,8 @@ class UsersExtension(ipy.Extension):
             logger.debug(f"new nick '{new_nick}' is too long. resetting...")
 
             try:
-                member = await member.modify(nick=None)
-            except ipy.LibraryException as e:
+                await member.edit_nickname(None, reason="nickname too long")
+            except ipy.errors.HTTPException as e:
                 if e.code not in _MODIFY_MEMBER_SAFE_ERROR_CODES:
                     raise
                 logger.info(f"failed to reset nickname for '{username}'")
@@ -53,15 +51,11 @@ class UsersExtension(ipy.Extension):
         logger.debug(f"updating nickname for '{old_nick}'")
 
         try:
-            member = await member.modify(nick=new_nick)
-        except ipy.LibraryException as e:
+            await member.edit_nickname(new_nick, reason="adding username to nickname")
+        except ipy.errors.HTTPException as e:
             if e.code not in _MODIFY_MEMBER_SAFE_ERROR_CODES:
                 raise
             logger.info(f"failed to reset nickname for '{username}'")
             return
 
-        logger.debug(f"updated nickname to '{member.name}'")
-
-
-def setup(client: ipy.Client):
-    UsersExtension(client)
+        logger.debug(f"updated nickname to '{member.nickname}'")
