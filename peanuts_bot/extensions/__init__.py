@@ -13,7 +13,7 @@ ALL_EXTENSIONS: list[ipy.SlashCommandChoice] = [
     ipy.SlashCommandChoice(
         name="Emoji Commands", value="peanuts_bot.extensions.emojis"
     ),
-    # ipy.SlashCommandChoice(name="RNG Commands", value="peanuts_bot.extensions.rng"),
+    ipy.SlashCommandChoice(name="RNG Commands", value="peanuts_bot.extensions.rng"),
     # ipy.SlashCommandChoice(name="User Commands", value="peanuts_bot.extensions.users"),
     # ipy.SlashCommandChoice(
     #     name="Message Commands", value="peanuts_bot.extensions.messages"
