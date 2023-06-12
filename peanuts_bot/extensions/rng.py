@@ -8,7 +8,7 @@ from config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.tabletop_roller import DiceRoll, parse_dice_roll
 
-__all__ = ["setup", "RngExtension"]
+__all__ = ["RngExtension"]
 
 logger = logging.getLogger(__name__)
 

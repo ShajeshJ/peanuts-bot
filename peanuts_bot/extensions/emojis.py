@@ -18,7 +18,7 @@ from peanuts_bot.libraries.image import (
     get_image_metadata,
 )
 
-__all__ = ["setup", "EmojiExtensions"]
+__all__ = ["EmojiExtensions"]
 
 logger = logging.getLogger(__name__)
 
