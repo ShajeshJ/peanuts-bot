@@ -126,15 +126,29 @@ class EmojiExtensions(ipy.Extension):
 
         images = get_images_from_msg(ctx.target)
 
+        label_prefix = "shortcut for "
+
+        def _get_file_name(img: ipy.Attachment | ipy.Embed) -> str:
+            filename = (
+                img.filename
+                if isinstance(img, ipy.Attachment)
+                else img.url.split("/")[-1]
+            )
+            return (
+                filename
+                if len(filename) + len(label_prefix) < 45
+                else f"...{filename[len(label_prefix) - 42:]}"
+            )
+
         text_fields = (
             ipy.InputText(
                 custom_id=f"{SHORTCUT_TEXT_PREFIX}{i}",
-                label=f"Emoji name to give to image {i+1}",
+                label=f"{label_prefix}{_get_file_name(img)}",
                 style=ipy.TextStyles.SHORT,
                 placeholder="Leave blank to skip this image",
                 required=False,
             )
-            for i in range(len(images))
+            for i, img in enumerate(images)
         )
         modal = ipy.Modal(
             *text_fields,
