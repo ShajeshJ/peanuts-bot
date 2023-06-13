@@ -42,6 +42,7 @@ class EnvLoader:
 
             try:
                 env_type = get_optional_subtype(t_annotation)
+                is_optional = True
                 logger.debug(f"<{env_type}> found as optional annotation's subtype")
             except ValueError:
                 logger.debug(f"<{t_annotation}> found as non-optional type")
