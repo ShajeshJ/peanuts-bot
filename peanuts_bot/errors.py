@@ -39,7 +39,12 @@ async def on_error(event: ipy.events.Error):
                 CONFIG.BOT_TOKEN, "[REDACTED]"
             )
             await admin.send(
-                f"Error in {event.ctx.command.name}:\n```{tb}```", ephemeral=True
+                embeds=ipy.Embed(
+                    title=f"Error: {type(event.error).__name__}",
+                    color=ipy.BrandColors.RED,
+                    description=f"```\n{tb[:ipy.EMBED_MAX_DESC_LENGTH - 8]}```",
+                ),
+                ephemeral=True,
             )
 
     except Exception as e:
