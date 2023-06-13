@@ -48,17 +48,20 @@ def get_discord_msg_links(content: str) -> Iterator[DiscordMesageLink]:
         )
 
 
-def disable_all_components(
-    component_rows: list[ipy.ActionRow] | None,
-) -> list[ipy.ActionRow] | None:
+async def disable_message_components(msg: ipy.Message | None) -> ipy.Message | None:
     """
-    Disables all components in the given component sets
+    Edits the given message to disable all components
 
-    :param component_rows: The set of components to disable
-    :return: The same component row objects, but with individual components disabled
+    :param msg: The message to disable components for
+    :return: The edited message, or None if the message was None
     """
 
-    if component_rows is None:
+    if msg is None:
         return None
 
-    return ipy.utils.misc_utils.disable_components(*component_rows)
+    if not msg.components:
+        return msg
+
+    return await msg.edit(
+        components=ipy.utils.misc_utils.disable_components(*msg.components)
+    )

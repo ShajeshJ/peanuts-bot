@@ -9,7 +9,7 @@ import interactions as ipy
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError, SOMETHING_WRONG
-from peanuts_bot.libraries.discord_bot import disable_all_components
+from peanuts_bot.libraries.discord_bot import disable_message_components
 from peanuts_bot.libraries.image import (
     MAX_EMOJI_FILE_SIZE,
     ImageType,
@@ -226,13 +226,9 @@ class EmojiExtensions(ipy.Extension):
     @ipy.component_callback(APPROVE_EMOJI_BTN)
     async def approve_emoji(self, ctx: ipy.ComponentContext):
         """Callback of an admin approving an emoji"""
-
-        disabled_btns = disable_all_components(ctx.message.components)
-
         try:
             emoji_request = EmojiRequest.from_approval_msg(ctx.message.content)
         except ValueError as e:
-            await ctx.message.edit(components=disabled_btns)
             raise BotUsageError("invalid emoji request message") from e
 
         # user and guild are not likely to go stale, so only force fetch channel
@@ -250,8 +246,12 @@ class EmojiExtensions(ipy.Extension):
             )
             await channel.send(f"{requester.mention} emoji {emoji} was created")
 
-        await ctx.message.edit(components=disabled_btns)
         await ctx.send(f"approved emoji {emoji_request.shortcut}", ephemeral=True)
+
+    @approve_emoji.post_run
+    async def approve_emoji_post_run(self, ctx: ipy.ComponentContext):
+        """Cleanup after approve emoji button is clicked"""
+        await disable_message_components(ctx.message)
 
     @ipy.component_callback(REJECT_EMOJI_BTN)
     async def reject_emoji(self, ctx: ipy.ComponentContext):
@@ -275,13 +275,9 @@ class EmojiExtensions(ipy.Extension):
     @ipy.modal_callback(REJECT_EMOJI_MODAL)
     async def reject_emoji_modal(self, ctx: ipy.ModalContext, emoji_reject_reason: str):
         """Callback after admin filled out error reason for an emoji rejection"""
-
-        disabled_btns = disable_all_components(ctx.message.components)
-
         try:
             emoji_request = EmojiRequest.from_approval_msg(ctx.message.content)
         except ValueError as e:
-            await ctx.message.edit(components=disabled_btns)
             raise BotUsageError("invalid emoji request message") from e
 
         # requester is not likely to go stale, so only force fetch channel
@@ -295,7 +291,10 @@ class EmojiExtensions(ipy.Extension):
         )
         await ctx.send(f"rejected emoji {emoji_request.shortcut}", ephemeral=True)
 
-        await ctx.message.edit(components=disabled_btns)
+    @reject_emoji_modal.post_run
+    async def reject_emoji_modal_post_run(self, ctx: ipy.ModalContext):
+        """Cleanup after reject emoji modal is submitted"""
+        await disable_message_components(ctx.message)
 
 
 async def _request_emoji(req: EmojiRequest, ctx: ipy.SlashContext | ipy.ModalContext):
