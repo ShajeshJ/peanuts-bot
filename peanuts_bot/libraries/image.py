@@ -7,12 +7,39 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 
+class ImageSize(int):
+    @property
+    def kb(self):
+        return self / 1024
+
+    @property
+    def mb(self):
+        return self / 1024**2
+
+    @property
+    def gb(self):
+        return self / 1024**3
+
+    def __str__(self) -> str:
+        if self >= 1024**3:
+            return f"{self.gb:.2f}".rstrip("0").rstrip(".") + " GB"
+        elif self >= 1024**2:
+            return f"{self.mb:.2f}".rstrip("0").rstrip(".") + " MB"
+        elif self >= 1024:
+            return f"{self.kb:.2f}".rstrip("0").rstrip(".") + " KB"
+        else:
+            return f"{self} B"
+
+
+MAX_EMOJI_FILE_SIZE = ImageSize(256 * 1024)
+
+
 class ImageType(str, Enum):
     JPEG = "image/jpeg"
     PNG = "image/png"
     GIF = "image/gif"
-    SVG = "image/svg+xml"
     WEBP = "image/webp"
+    OTHER = "image/..."
 
     @property
     def extension(self):
@@ -22,17 +49,20 @@ class ImageType(str, Enum):
 def is_image(obj: ipy.Attachment | ipy.Embed) -> bool:
     """Indicates if a given attachment / embed object is an image"""
 
+    if any(t.extension for t in ImageType if obj.url.endswith(t.extension)):
+        return True
+
     if isinstance(obj, ipy.Attachment):
         return obj.content_type and obj.content_type.startswith("image/")
 
-    return obj.type == "image"
+    return obj.type == ipy.models.discord.enums.EmbedType.IMAGE
 
 
-def get_image_url(obj: ipy.Attachment | ipy.Embed):
-    """Tries to return the URL of the image for an attachment / embed object, if available"""
+def get_image_url(obj: ipy.Attachment | ipy.Embed) -> str | None:
+    """Returns the URL of the image for an attachment / embed object, or None if no image is available"""
 
     if not is_image(obj):
-        raise ValueError(f"{obj} does not contain image content")
+        return None
 
     return obj.url
 
@@ -43,12 +73,15 @@ async def get_image_metadata(url: str) -> tuple[ImageType, int]:
     Raises `ValueError` if the given URL does not have appropriate content headers for an image."""
 
     async with aiohttp.request("GET", url) as res:
-        content_type = res.headers.get("Content-Type")
         content_length = res.headers.get("Content-Length")
+        mime = ipy.utils.get_file_mimetype(await res.read())
 
-        logger.debug(f"Actual {content_type=}, {content_length=}")
+        logger.debug(f"Actual {mime=}, {content_length=}")
 
         try:
-            return ImageType(content_type), int(content_length)
+            return ImageType(mime), int(content_length)
         except ValueError as e:
+            if mime.startswith("image/"):
+                return ImageType.OTHER, int(content_length)
+
             raise ValueError("Invalid image metadata for the given URL") from e

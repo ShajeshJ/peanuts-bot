@@ -3,13 +3,12 @@ import random
 import re
 from typing import Annotated
 import interactions as ipy
-import interactions.ext.enhanced as ipye
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.tabletop_roller import DiceRoll, parse_dice_roll
 
-__all__ = ["setup", "RngExtension"]
+__all__ = ["RngExtension"]
 
 logger = logging.getLogger(__name__)
 
@@ -55,24 +54,22 @@ def append_new_result(msg: str, result: str, is_first: bool = False) -> str:
 
 
 class RngExtension(ipy.Extension):
-    def __init__(self, client: ipy.Client) -> None:
-        self.client: ipy.Client = client
-
-    @ipy.extension_command(scope=CONFIG.GUILD_ID)
-    @ipye.setup_options
+    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def random(
         self,
-        ctx: ipy.CommandContext,
+        ctx: ipy.SlashContext,
         min: Annotated[
             int,
-            ipye.EnhancedOption(
-                int, description="Minimum (inclusive) value of the random number"
+            ipy.slash_int_option(
+                description="Minimum (inclusive) value of the random number",
+                required=True,
             ),
         ],
         max: Annotated[
             int,
-            ipye.EnhancedOption(
-                int, description="Maximum (inclusive) value of the random number"
+            ipy.slash_int_option(
+                description="Maximum (inclusive) value of the random number",
+                required=True,
             ),
         ],
     ):
@@ -88,7 +85,7 @@ class RngExtension(ipy.Extension):
         )
         await ctx.send(content, components=[get_random_button(min, max)])
 
-    @ipy.extension_component(RANDOM_BUTTON_PREFIX, startswith=True)
+    @ipy.component_callback(RANDOM_BUTTON_REGEX)
     async def rerun_random(self, ctx: ipy.ComponentContext):
         """Re-run the random command with the same parameters"""
         if not ctx.custom_id or not ctx.message:
@@ -96,18 +93,16 @@ class RngExtension(ipy.Extension):
 
         min, max = parse_random_button_id(ctx.custom_id)
         content = append_new_result(ctx.message.content, random.randint(min, max))
-        await ctx.edit(content, components=ctx.message.components)
+        await ctx.edit_origin(content=content, components=ctx.message.components)
 
-    @ipy.extension_command(scope=CONFIG.GUILD_ID)
-    @ipye.setup_options
+    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def roll(
         self,
-        ctx: ipy.CommandContext,
+        ctx: ipy.SlashContext,
         roll: Annotated[
             str,
-            ipye.EnhancedOption(
-                str,
-                description="A dice roll to execute (e.g. 1d20+5)",
+            ipy.slash_str_option(
+                description="A dice roll to execute (e.g. 1d20+5)", required=True
             ),
         ],
     ):
@@ -130,7 +125,7 @@ class RngExtension(ipy.Extension):
         )
         await ctx.send(content, components=[get_roll_button(parsed_roll)])
 
-    @ipy.extension_component(ROLL_BUTTON_PREFIX, startswith=True)
+    @ipy.component_callback(re.compile(f"^{ROLL_BUTTON_PREFIX}.*"))
     async def rerun_roll(self, ctx: ipy.ComponentContext):
         """Re-run the roll command with the same parameters"""
         if not ctx.custom_id or not ctx.message:
@@ -150,8 +145,4 @@ class RngExtension(ipy.Extension):
         content = append_new_result(
             msg=ctx.message.content, result=f"Rolls: {rolled_dice} | Result: {result}"
         )
-        await ctx.edit(content, components=ctx.message.components)
-
-
-def setup(client: ipy.Client):
-    RngExtension(client)
+        await ctx.edit_origin(content=content, components=ctx.message.components)

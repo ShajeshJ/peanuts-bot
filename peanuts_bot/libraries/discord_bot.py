@@ -1,52 +1,67 @@
 from collections.abc import Iterator
-from dataclasses import dataclass
 import re
-from typing import TypeVar
+from typing import NamedTuple
 import interactions as ipy
 
 # Try to match discord message link https://discord.com/channels/<id>/<id>/<id>
-_DISCORD_MSG_URL_REGEX = r"https?:\/\/discord\.com\/channels\/[0-9]+\/[0-9]+\/[0-9]+"
+_DISCORD_MSG_URL_REGEX = (
+    r"https?:\/\/discord\.com"
+    r"\/channels\/(?P<g_id>[0-9]+)"
+    r"\/(?P<c_id>[0-9]+)"
+    r"\/(?P<m_id>[0-9]+)"
+)
 
 
-def get_discord_msg_urls(content: str) -> Iterator[str]:
+class DiscordMesageLink(NamedTuple):
+    guild_id: int
+    channel_id: int
+    message_id: int
+
+    @property
+    def url(self) -> str:
+        return f"https://discord.com/channels/{self.guild_id}/{self.channel_id}/{self.message_id}"
+
+
+def parse_discord_msg_link(link: str) -> DiscordMesageLink | None:
     """
-    Returns a list of all discord message links in the given content
+    Parses a discord message link into a DiscordMesageLink object
+
+    :param link: The link to parse
+    :return: The parsed link or None if the link is invalid
+    """
+    return next(get_discord_msg_links(link), None)
+
+
+def get_discord_msg_links(content: str) -> Iterator[DiscordMesageLink]:
+    """
+    Gets all discord message links in the content
 
     :param content: The content to search for links
-    :return: A list of all discord message urls found in the content
+    :return: A iterable of all discord message links found in the content
     """
     for url in re.finditer(_DISCORD_MSG_URL_REGEX, content):
-        yield url.group(0)
+        parsed_values = url.groupdict()
+        yield DiscordMesageLink(
+            int(parsed_values["g_id"]),
+            int(parsed_values["c_id"]),
+            int(parsed_values["m_id"]),
+        )
 
 
-def disable_all_components(
-    component_rows: list[ipy.ActionRow] | None,
-) -> list[ipy.ActionRow] | None:
+async def disable_message_components(msg: ipy.Message | None) -> ipy.Message | None:
     """
-    Disables all components in the given component sets
+    Edits the given message to disable all components
 
-    :param component_rows: The set of components to disable
-    :return: The same component row objects, but with individual components disabled
+    :param msg: The message to disable components for
+    :return: The edited message, or None if the message was None
     """
 
-    if component_rows is None:
+    if msg is None:
         return None
 
-    for row in component_rows:
-        if row.components is None:
-            continue
+    if not msg.components:
+        return msg
 
-        for component in row.components:
-            component.disabled = True
-
-    return component_rows
-
-
-def get_emoji_mention(emoji: ipy.Emoji) -> str:
-    """
-    Return the mention of an emoji so it can be printed in discord
-
-    :param emoji: The emoji to print
-    :return: A string representing the "mention" value of the emoji
-    """
-    return f"<:{emoji.name}:{emoji.id}>"
+    return await msg.edit(
+        components=ipy.utils.misc_utils.disable_components(*msg.components)
+    )

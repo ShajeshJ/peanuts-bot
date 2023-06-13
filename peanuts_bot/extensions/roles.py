@@ -1,170 +1,217 @@
 import logging
-import asyncio
-from typing import Annotated
+from typing import Annotated, Callable, NamedTuple
+from collections.abc import Iterator, AsyncIterator
 import interactions as ipy
-import interactions.ext.enhanced as ipye
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
 
-__all__ = ["setup", "RolesExtension"]
+__all__ = ["RolesExtension"]
 
 logger = logging.getLogger(__name__)
 
-ROLE_TOGGLE_PREFIX = "role_toggle_"
+ROLE_JOIN_ID = f"role_join"
+ROLE_LEAVE_ID = f"role_leave"
+
+_JOINABLE_PERMISSION_SET: ipy.Permissions = ipy.Permissions.NONE
 
 
 class RolesExtension(ipy.Extension):
-    def __init__(self, client: ipy.Client) -> None:
-        self.client: ipy.Client = client
-
-    @ipy.extension_command(scope=CONFIG.GUILD_ID)
-    async def role(self, _: ipy.CommandContext):
+    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
+    async def role(self, _: ipy.SlashContext):
         pass
 
     @role.subcommand()
-    @ipye.setup_options
     async def create(
         self,
-        ctx: ipy.CommandContext,
+        ctx: ipy.SlashContext,
         name: Annotated[
-            str, ipye.EnhancedOption(str, description="Name of the new role")
+            str, ipy.slash_str_option(required=True, description="Name of the new role")
         ],
     ):
         """Create a new mention role that others can join"""
 
-        if any(r.name == name for r in await ctx.guild.get_all_roles()):
+        if any(r.name == name for r in ctx.guild.roles):
             raise BotUsageError(f"The role {name} already exists")
 
         role = await ctx.guild.create_role(
             name=name,
             mentionable=True,
-            reason=f"Created by {ctx.author.name} via bot commands",
-            permissions=0,
+            reason=f"Created by {ctx.author.username} via bot commands",
+            permissions=_JOINABLE_PERMISSION_SET,
         )
+
         await ctx.send(f"Created new role {role.mention}")
 
     @role.subcommand()
-    @ipye.setup_options
     async def delete(
         self,
-        ctx: ipy.CommandContext,
+        ctx: ipy.SlashContext,
         role: Annotated[
             ipy.Role,
-            ipye.EnhancedOption(ipy.Role, description="The role to be deleted"),
+            ipy.slash_role_option(description="The role to be deleted", required=True),
         ],
     ):
         """Request to delete a mentionable role"""
         if not is_joinable(role):
             raise BotUsageError(f"You cannot request to delete this role")
 
-        for user in await ctx.guild.get_all_members():
-            if role.id in user.roles and user.id != ctx.author.id:
-                raise BotUsageError(f"There are 1 or more people still in this role")
+        if any(m for m in role.members if m.id != ctx.author.id):
+            raise BotUsageError(f"There are 1 or more people still in '{role.name}'")
 
-        await ctx.guild.delete_role(
-            role, f"Deleted by {ctx.author.name} via bot commands"
-        )
+        await role.delete(f"Deleted by {ctx.author.username} via bot commands")
         await ctx.send(f"Deleted role '{role.name}'")
 
     @role.subcommand()
-    @ipye.setup_options
-    async def join(self, ctx: ipy.CommandContext):
+    async def join(self, ctx: ipy.SlashContext):
         """Add yourself to a mention role"""
         options = [
-            ipy.SelectOption(label=role.name, value=role.name)
-            for role in await ctx.guild.get_all_roles()
-            if is_joinable(role) and role.id not in ctx.author.roles
+            ipy.StringSelectOption(label=role.name, value=get_role_option_value(role))
+            for role in ctx.guild.roles
+            if is_joinable(role) and not ctx.author.has_role(role)
         ]
         if not options:
             raise BotUsageError("There are no new roles you can join")
 
-        role_dropdown = ipy.SelectMenu(
-            custom_id=f"{ROLE_TOGGLE_PREFIX}join",
+        role_dropdown = ipy.StringSelectMenu(
+            *options,
+            custom_id=ROLE_JOIN_ID,
             placeholder="Join a mention role",
             max_values=len(options),
-            options=options,
         )
         await ctx.send(components=role_dropdown, ephemeral=True)
 
+    @ipy.component_callback(ROLE_JOIN_ID)
+    async def join_selection(self, ctx: ipy.ComponentContext):
+        """Callback after a selection is made on a join dropdown"""
+
+        invalid_roles = []
+        joined_roles = []
+        roles_to_join = get_valid_roles(
+            selected_roles=(split_role_option_value(v) for v in ctx.values),
+            ctx=ctx,
+            should_skip=lambda ctx, r: ctx.author.has_role(r),
+            invalid_role_callback=invalid_roles.append,
+        )
+
+        async for role in roles_to_join:
+            logger.debug(f"{ctx.author.display_name} attempting to join {role.name}")
+            joined_roles.append(role.name)
+            await ctx.author.add_role(
+                role, f"{ctx.author.display_name} joined role via join command"
+            )
+
+        if joined_roles:
+            await ctx.send(
+                f"Successfully joined {', '.join(joined_roles)}", ephemeral=True
+            )
+
+        if invalid_roles:
+            await ctx.send(
+                f"Failed to join {', '.join(invalid_roles)}.", ephemeral=True
+            )
+
     @role.subcommand()
-    @ipye.setup_options
-    async def leave(self, ctx: ipy.CommandContext):
+    async def leave(self, ctx: ipy.SlashContext):
         """Remove yourself from a mention role"""
         options = [
-            ipy.SelectOption(label=role.name, value=role.name)
-            for role in await ctx.guild.get_all_roles()
+            ipy.StringSelectOption(label=role.name, value=get_role_option_value(role))
+            for role in ctx.guild.roles
             if is_joinable(role) and role.id in ctx.author.roles
         ]
         if not options:
             raise BotUsageError("There are no roles you can leave")
 
-        role_dropdown = ipy.SelectMenu(
-            custom_id=f"{ROLE_TOGGLE_PREFIX}leave",
+        role_dropdown = ipy.StringSelectMenu(
+            *options,
+            custom_id=ROLE_LEAVE_ID,
             placeholder="Leave a mention role",
             max_values=len(options),
-            options=options,
         )
         await ctx.send(components=role_dropdown, ephemeral=True)
 
-    @ipy.extension_component(ROLE_TOGGLE_PREFIX, startswith=True)
-    async def toggle_role(self, ctx: ipy.ComponentContext):
-        """Callback after a selection is made on a join/leave dropdown"""
-        role_names = ctx.data.values
-
-        user_is_joining = ctx.custom_id.lower().endswith("join")
-        logger.info(
-            f"Toggle role callback called with id {ctx.custom_id}. user_is_joining={user_is_joining}"
-        )
-
-        toggle_role = ctx.author.add_role if user_is_joining else ctx.author.remove_role
+    @ipy.component_callback(ROLE_LEAVE_ID)
+    async def leave_selection(self, ctx: ipy.ComponentContext):
+        """Callback after a selection is made on a leave dropdown"""
 
         invalid_roles = []
-        toggled_roles = {}
+        left_roles = []
+        roles_to_leave = get_valid_roles(
+            selected_roles=(split_role_option_value(v) for v in ctx.values),
+            ctx=ctx,
+            should_skip=lambda ctx, r: not ctx.author.has_role(r),
+            invalid_role_callback=invalid_roles.append,
+        )
 
-        valid_roles = {
-            r.name: r for r in await ctx.guild.get_all_roles() if is_joinable(r)
-        }
-
-        for role_name in role_names:
-            if role_name not in valid_roles:
-                logger.info(f"{role_name} is not a toggleable role. Skipping...")
-                invalid_roles.append(role_name)
-                continue
-
-            if (valid_roles[role_name].id in ctx.author.roles) == user_is_joining:
-                # To avoid re-calling discord APIs to join/eave roles the user is in
-                logger.info(
-                    f"{ctx.author.name} already had {role_name} set to {user_is_joining}. Skipping..."
-                )
-                toggled_roles[role_name] = None
-                continue
-
-            logger.info(f"{ctx.author.name} attempting to toggle {role_name}")
-            toggled_roles[role_name] = toggle_role(
-                valid_roles[role_name],
-                ctx.guild_id,
-                f"{ctx.author.name} toggled role via join/leave command",
+        async for role in roles_to_leave:
+            logger.debug(f"{ctx.author.display_name} attempting to leave {role.name}")
+            left_roles.append(role.name)
+            await ctx.author.remove_role(
+                role, f"{ctx.author.display_name} left role via leave command"
             )
 
-        await asyncio.gather(*(x for x in toggled_roles.values() if x is not None))
-
-        if toggled_roles:
-            await ctx.send(
-                f"Successfully {'joined' if user_is_joining else 'left'} {', '.join(toggled_roles)}",
-                ephemeral=True,
-            )
+        if left_roles:
+            await ctx.send(f"Successfully left {', '.join(left_roles)}", ephemeral=True)
 
         if invalid_roles:
             await ctx.send(
-                f"Failed to {'join' if user_is_joining else 'leave'} {', '.join(invalid_roles)}.",
-                ephemeral=True,
+                f"Failed to leave {', '.join(invalid_roles)}.", ephemeral=True
             )
 
 
+class RoleOptionTuple(NamedTuple):
+    id: ipy.Snowflake
+    name: str
+
+
+async def get_valid_roles(
+    selected_roles: Iterator[RoleOptionTuple],
+    ctx: ipy.ComponentContext,
+    should_skip: Callable[[ipy.ComponentContext, ipy.Role], bool],
+    invalid_role_callback: Callable[[str], None],
+) -> AsyncIterator[ipy.Role]:
+    """
+    Returns an iterator that yields roles to join/leave.
+
+    :param selected_roles: The roles selected by the user
+    :param ctx: The context of the interaction
+    :param should_skip: A function that returns True if the role should be skipped
+    :param invalid_role_callback: A function that is called when a role is invalid (e.g. not joinable, does not exist)
+    :return: An iterator that yields roles to join/leave
+    """
+
+    if not ctx.guild or not isinstance(ctx.author, ipy.Member):
+        raise ValueError("ctx must be in a guild context, where author is a member")
+
+    for role_id, role_name in selected_roles:
+        role = await ctx.guild.fetch_role(role_id)
+        if not role:
+            logger.debug(f"{role_name} does not exist. Skipping...")
+            invalid_role_callback(role_name)
+            continue
+
+        if should_skip(ctx, role):
+            logger.debug(
+                f"{ctx.author.display_name} met skip condition for {role_name}. Skipping..."
+            )
+            continue
+
+        if not is_joinable(role):
+            logger.debug(f"{role_name} is not a joinable role. Skipping...")
+            invalid_role_callback(role_name)
+            continue
+
+        yield role
+
+
+def get_role_option_value(role: ipy.Role) -> str:
+    return f"{role.id}|{role.name}"
+
+
+def split_role_option_value(value: str) -> RoleOptionTuple:
+    r_id, r_name = value.split("|")
+    return RoleOptionTuple(ipy.Snowflake(r_id), r_name)
+
+
 def is_joinable(r: ipy.Role) -> bool:
-    return r.mentionable and r.permissions == "0"
-
-
-def setup(client: ipy.Client):
-    RolesExtension(client)
+    return r.mentionable and r.permissions == _JOINABLE_PERMISSION_SET

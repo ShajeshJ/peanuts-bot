@@ -1,36 +1,33 @@
 import logging
 from typing import Annotated
 import interactions as ipy
-import interactions.ext.enhanced as ipye
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
 
-__all__ = ["setup", "ChannelsExtension"]
+__all__ = ["ChannelsExtension"]
 
 logger = logging.getLogger(__name__)
 
 
 class ChannelsExtension(ipy.Extension):
-    def __init__(self, client: ipy.Client) -> None:
-        self.client: ipy.Client = client
-
-    @ipy.extension_command(scope=CONFIG.GUILD_ID)
-    async def channel(self, _: ipy.CommandContext):
+    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
+    async def channel(self, _: ipy.SlashContext):
         pass
 
     @channel.subcommand()
-    @ipye.setup_options
     async def create(
         self,
-        ctx: ipy.CommandContext,
+        ctx: ipy.SlashContext,
         name: Annotated[
-            str, ipye.EnhancedOption(str, description="The name of the new channel")
+            str,
+            ipy.slash_str_option(
+                description="The name of the new channel", required=True
+            ),
         ],
         category: Annotated[
-            ipy.Channel,
-            ipye.EnhancedOption(
-                ipy.Channel,
+            ipy.GuildCategory | None,
+            ipy.slash_channel_option(
                 description="Category to nest the channel under",
                 channel_types=[ipy.ChannelType.GUILD_CATEGORY],
             ),
@@ -41,7 +38,7 @@ class ChannelsExtension(ipy.Extension):
         existing_channel = next(
             (
                 c
-                for c in await ctx.guild.get_all_channels()
+                for c in await ctx.guild.fetch_channels()
                 if c.type != ipy.ChannelType.GUILD_CATEGORY and c.name == name
             ),
             None,
@@ -49,15 +46,13 @@ class ChannelsExtension(ipy.Extension):
         if existing_channel:
             raise BotUsageError(f"{existing_channel.mention} already exists")
 
+        logger.info(category)
+
         channel = await ctx.guild.create_channel(
-            name,
-            ipy.ChannelType.GUILD_TEXT,
-            parent_id=category or ipy.MISSING,
-            reason=f"Created by {ctx.author.name} via bot commands",
+            channel_type=ipy.ChannelType.GUILD_TEXT,
+            name=name,
+            category=category,
+            reason=f"Created by {ctx.author.display_name} via bot commands",
         )
 
         await ctx.send(f"Created new channel {channel.mention}")
-
-
-def setup(client: ipy.Client):
-    ChannelsExtension(client)
