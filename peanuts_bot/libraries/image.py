@@ -38,8 +38,8 @@ class ImageType(str, Enum):
     JPEG = "image/jpeg"
     PNG = "image/png"
     GIF = "image/gif"
-    SVG = "image/svg+xml"
     WEBP = "image/webp"
+    OTHER = "image/..."
 
     @property
     def extension(self):
@@ -73,12 +73,15 @@ async def get_image_metadata(url: str) -> tuple[ImageType, int]:
     Raises `ValueError` if the given URL does not have appropriate content headers for an image."""
 
     async with aiohttp.request("GET", url) as res:
-        content_type = res.headers.get("Content-Type")
         content_length = res.headers.get("Content-Length")
+        mime = ipy.utils.get_file_mimetype(await res.read())
 
-        logger.debug(f"Actual {content_type=}, {content_length=}")
+        logger.debug(f"Actual {mime=}, {content_length=}")
 
         try:
-            return ImageType(content_type), int(content_length)
+            return ImageType(mime), int(content_length)
         except ValueError as e:
+            if mime.startswith("image/"):
+                return ImageType.OTHER, int(content_length)
+
             raise ValueError("Invalid image metadata for the given URL") from e
