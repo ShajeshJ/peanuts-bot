@@ -51,6 +51,10 @@ def main():
     """
     init_app_dependencies()
 
+    from keep_alive import keep_alive
+
+    keep_alive()
+
     from peanuts_bot import bot
 
     bot.start()
