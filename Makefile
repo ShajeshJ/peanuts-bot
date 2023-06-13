@@ -17,7 +17,7 @@ init: create_env_file create_venv pip_install
 
 list_dep_diff:
 	@-$(venv_activate) && \
-		bash -c 'diff -d --color=always <(cat $(req_file) $(dev_req_file) | sort) <(pip freeze) | grep "[<>]"'
+		bash -c 'diff -d --color=always <(cat $(req_file) $(dev_req_file) | sort --ignore-case) <(pip freeze) | grep "[<>]"'
 	@printf "\n\033[32mDeps > need to be added to one of the requirements files\033[0m\n"
 	@printf "\033[31mDeps < need to be installed to your virtual env\033[0m"
 
