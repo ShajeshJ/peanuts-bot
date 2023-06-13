@@ -97,12 +97,12 @@ class EmojiExtensions(ipy.Extension):
     ):
         """Request a new Emoji to be added"""
 
-        if not is_image(emoji):
+        url = get_image_url(emoji)
+        if not url:
             raise BotUsageError(
                 f"Not a valid file. Emoji images must be png, jpeg, or gif files."
             )
 
-        url = get_image_url(emoji)
         content_type, content_length = await get_image_metadata(url)
 
         req = EmojiRequest(
@@ -161,6 +161,9 @@ class EmojiExtensions(ipy.Extension):
 
             index = int(field_id.replace(SHORTCUT_TEXT_PREFIX, ""))
             url = get_image_url(images[int(index)])
+            if not url:
+                continue
+
             content_type, content_length = await get_image_metadata(url)
 
             req = EmojiRequest(

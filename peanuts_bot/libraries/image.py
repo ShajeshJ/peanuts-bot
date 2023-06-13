@@ -49,17 +49,20 @@ class ImageType(str, Enum):
 def is_image(obj: ipy.Attachment | ipy.Embed) -> bool:
     """Indicates if a given attachment / embed object is an image"""
 
+    if any(t.extension for t in ImageType if obj.url.endswith(t.extension)):
+        return True
+
     if isinstance(obj, ipy.Attachment):
         return obj.content_type and obj.content_type.startswith("image/")
 
-    return obj.type == "image"
+    return obj.type == ipy.models.discord.enums.EmbedType.IMAGE
 
 
-def get_image_url(obj: ipy.Attachment | ipy.Embed):
-    """Tries to return the URL of the image for an attachment / embed object, if available"""
+def get_image_url(obj: ipy.Attachment | ipy.Embed) -> str | None:
+    """Returns the URL of the image for an attachment / embed object, or None if no image is available"""
 
     if not is_image(obj):
-        raise ValueError(f"{obj} does not contain image content")
+        return None
 
     return obj.url
 

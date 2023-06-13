@@ -9,6 +9,7 @@ from peanuts_bot.libraries.discord_bot import (
     get_discord_msg_links,
     parse_discord_msg_link,
 )
+from peanuts_bot.libraries.image import get_image_url
 
 __all__ = ["MessagesExtension"]
 
@@ -146,20 +147,13 @@ async def _create_quote_embed(msg: ipy.Message) -> ipy.Embed:
     # Set author
     embed.set_author(name=msg.author.display_name, icon_url=msg.author.avatar.url)
 
-    # Add image from either attachments or other embeds on the message if possible
-    for attached in msg.attachments:
-        if (
-            attached.content_type and attached.content_type.startswith("image/")
-        ) or attached.url.endswith((".png", ".jpg", ".jpeg", ".gif")):
-            embed.set_image(url=attached.url)
-            break
-
-    if not embed.image:
-        embed_image_url = next(
-            (e.image.url for e in msg.embeds if e.image and e.image.url), None
+    try:
+        image_url = next(
+            url for i in msg.attachments + msg.embeds if (url := get_image_url(i))
         )
-        if embed_image_url:
-            embed.set_image(url=embed_image_url)
+        embed.set_image(url=image_url)
+    except StopIteration:
+        pass
 
     # Set quoted message content with a link to the original
     embed.description = msg.content
