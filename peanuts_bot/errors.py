@@ -1,6 +1,9 @@
 import logging
+import traceback
 
 import interactions as ipy
+
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 SOMETHING_WRONG = "Sorry, something went wrong. Try again later."
@@ -19,7 +22,7 @@ async def on_error(event: ipy.events.Error):
     """
     if not isinstance(event.ctx, ipy.InteractionContext):
         raise Exception(
-            f"did not get InteractionContext; instead got {type(event.ctx).__name__}"
+            f"did not get InteractionContext for {event.source}; instead got {type(event.ctx).__name__}"
         ) from event.error
 
     if isinstance(event.error, BotUsageError):
@@ -28,6 +31,17 @@ async def on_error(event: ipy.events.Error):
 
     try:
         await event.ctx.send(SOMETHING_WRONG, ephemeral=True)
+
+        # Also notify admin user of the error
+        admin = await event.bot.fetch_user(CONFIG.ADMIN_USER_ID)
+        if admin:
+            tb = "".join(traceback.format_exception(event.error)).replace(
+                CONFIG.BOT_TOKEN, "[REDACTED]"
+            )
+            await admin.send(
+                f"Error in {event.ctx.command.name}:\n```{tb}```", ephemeral=True
+            )
+
     except Exception as e:
         raise e from event.error
 
