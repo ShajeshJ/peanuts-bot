@@ -41,13 +41,6 @@ class RolesExtension(ipy.Extension):
             permissions=_JOINABLE_PERMISSION_SET,
         )
 
-        # TODO: A hack to get around a bug with `create_role`. Update this when
-        # https://github.com/interactions-py/interactions.py/issues/1420 is fixed
-        await role.edit(
-            name=name,
-            mentionable=True,
-            permissions=_JOINABLE_PERMISSION_SET,
-        )
         await ctx.send(f"Created new role {role.mention}")
 
     @role.subcommand()
