@@ -20,10 +20,10 @@ class LocalExtension(ipy.Extension):
             ipy.slash_str_option(
                 required=True,
                 description="The extension to reload",
-                choices=ALL_EXTENSIONS,
+                choices=[e.to_slash_command_choice() for e in ALL_EXTENSIONS],
             ),
         ],
     ):
         """[ADMIN-ONLY] Reload bot commands"""
-        # bot.reload_extension(ext)
+        # self.bot.reload_extension(ext)
         await ctx.send(f"{ext} reloaded", ephemeral=True)

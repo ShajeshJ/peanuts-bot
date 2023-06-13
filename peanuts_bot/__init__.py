@@ -17,4 +17,4 @@ bot.add_listener(on_error)
 
 # Load bot extensions
 for ext in ALL_EXTENSIONS:
-    bot.load_extension(ext.value)
+    bot.load_extension(ext.module_path)
