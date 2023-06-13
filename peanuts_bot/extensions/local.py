@@ -25,5 +25,7 @@ class LocalExtension(ipy.Extension):
         ],
     ):
         """[ADMIN-ONLY] Reload bot commands"""
-        # self.bot.reload_extension(ext)
+
+        # TODO: Submit extension unloading fix for patterned callbacks
+        self.bot.reload_extension(ext)
         await ctx.send(f"{ext} reloaded", ephemeral=True)
