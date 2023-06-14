@@ -14,7 +14,7 @@ class StocksExtension(ipy.Extension):
         ticker: Annotated[
             str,
             ipy.slash_str_option(
-                description="The ticker symbol to look up",
+                description="**Warning: autocomplete is api rate limited**. The ticker symbol to look up",
                 required=True,
                 autocomplete=True,
             ),
@@ -41,7 +41,7 @@ class StocksExtension(ipy.Extension):
             return
 
         def _get_option_label(r: stocks_api.SymbolSearchResult) -> str:
-            label = f"({r.symbol}) {r.name}"
+            label = f"{r.symbol} ({r.name})"
             if len(label) > 100:
                 label = label[:97] + "..."
             return label
