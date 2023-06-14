@@ -18,6 +18,8 @@ class EnvConfig(EnvLoader):
     LOG_LEVEL: str = "INFO"
     GUILD_ID: int
     ADMIN_USER_ID: int
+    STOCKS_API_URL: str | None
+    STOCKS_API_KEY: str | None
 
     @property
     def IS_LOCAL(self) -> bool:

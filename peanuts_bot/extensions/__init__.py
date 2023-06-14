@@ -3,6 +3,7 @@ from typing import NamedTuple
 import interactions as ipy
 
 from config import CONFIG
+from peanuts_bot.libraries.stocks_api import is_stocks_api_connected
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,13 @@ ALL_EXTENSIONS: list[LoadableExtensions] = [
     LoadableExtensions("User Commands", "peanuts_bot.extensions.users"),
     LoadableExtensions("Message Commands", "peanuts_bot.extensions.messages"),
 ]
+
+if is_stocks_api_connected():
+    ALL_EXTENSIONS.append(
+        LoadableExtensions("Stocks Commands", "peanuts_bot.extensions.stocks")
+    )
+else:
+    logger.warning("stocks api is not connected, skipping stocks commands")
 
 if CONFIG.IS_LOCAL:
     logger.debug("loading local commands")
