@@ -47,6 +47,13 @@ class DailyStock:
     """the daily datapoints, sorted by ascending date"""
     datapoints: list[DailyDP]
 
+    @property
+    def has_multiple_days(self) -> bool:
+        """
+        True if the stock has multiple days of data; False otherwise
+        """
+        return len(self.datapoints) > 1
+
     @staticmethod
     def from_api(d: dict[str, dict]) -> "DailyStock":
         try:

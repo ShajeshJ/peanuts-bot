@@ -30,6 +30,9 @@ class StocksExtension(ipy.Extension):
                 f"Could not get stock info for {ticker}. Try again later."
             )
 
+        if not stock.datapoints:
+            raise BotUsageError(f"no daily datapoints available for {ticker}")
+
         await ctx.send("", embed=daily_stock_to_embed(stock))
 
     @stock.autocomplete("ticker")
@@ -62,15 +65,54 @@ def daily_stock_to_embed(stock: stocks_api.DailyStock) -> ipy.Embed:
     :param stock: the daily stock data
     :return: the embed
     """
-    embed = ipy.Embed(
+    embed = _create_embed(stock=stock)
+    embed = _add_description(embed, stock=stock)
+    embed = _add_fields(embed, stock=stock)
+
+    return embed
+
+
+def _create_embed(*, stock: stocks_api.DailyStock) -> ipy.Embed:
+    """
+    Creates an embed for the stock data
+    """
+    return ipy.Embed(
         title=f"__{stock.symbol}__ Stock Info (Daily)",
         url=f"https://ca.finance.yahoo.com/quote/{stock.symbol}",
         color=ipy.Color.from_hex("#8935d9"),
         footer=ipy.EmbedFooter(text=f"Last refreshed {stock.last_refresh.date()}"),
     )
-    today = stock.datapoints[-1]
 
-    today_fields = [
+
+def _add_description(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Embed:
+    """
+    Adds the description to the embed
+    """
+    if not stock.has_multiple_days:
+        embed.description = "**```diff\nData for yesterady unavailable```**"
+    else:
+        today = stock.datapoints[-1]
+        yesterday = stock.datapoints[-2]
+
+        # Calculate close difference
+        diff = today.close - yesterday.close
+        diff_percent = diff / yesterday.close * 100
+
+        # Format close difference; for negative values, the sign will already included in `diff`
+        diff_sign = "+" if diff >= 0 else ""
+        embed.description = (
+            f"**```diff\n{diff_sign}{diff:.2f} ({diff_sign}{diff_percent:.2f}%)```**"
+        )
+
+    return embed
+
+
+def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Embed:
+    """
+    Adds the fields to the embed
+    """
+    today = stock.datapoints[-1]
+    all_fields = [
         ipy.EmbedField("Close", f"{today.close:.2f}", inline=True),
         ipy.EmbedField("Open", f"{today.open:.2f}", inline=True),
         ipy.EmbedField(
@@ -78,29 +120,12 @@ def daily_stock_to_embed(stock: stocks_api.DailyStock) -> ipy.Embed:
         ),
     ]
 
-    # If yesterday isn't available, only include today's data
-    if len(stock.datapoints) < 2:
-        embed.description = "**```diff\nData for yesterady unavailable```**"
-        embed.add_fields(*today_fields)
-        return embed
+    if stock.has_multiple_days:
+        yesterday = stock.datapoints[-2]
+        all_fields.insert(
+            1, ipy.EmbedField("Previous Close", f"{yesterday.close:.2f}", inline=True)
+        )
 
-    # Otherwise, tack on historical data
-    yesterday = stock.datapoints[-2]
-
-    # Add close difference
-    diff = today.close - yesterday.close
-    diff_percent = diff / yesterday.close * 100
-    # for negative values, the sign will already included in `diff`
-    diff_sign = "+" if diff >= 0 else ""
-    embed.description = (
-        f"**```diff\n{diff_sign}{diff:.2f} ({diff_sign}{diff_percent:.2f}%)```**"
-    )
-
-    # Insert additional fields from yesterday's data
-    all_fields = today_fields.copy()
-    all_fields.insert(
-        1, ipy.EmbedField("Previous Close", f"{yesterday.close:.2f}", inline=True)
-    )
     embed.add_fields(*all_fields)
 
     return embed
