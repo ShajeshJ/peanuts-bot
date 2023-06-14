@@ -2,6 +2,7 @@ from typing import Annotated
 import interactions as ipy
 
 from config import CONFIG
+from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries import stocks_api
 
 
@@ -23,6 +24,12 @@ class StocksExtension(ipy.Extension):
         Retrieves daily stock information for the specified security
         """
         stock = await stocks_api.get_daily_stock(ticker)
+
+        if not stock:
+            raise BotUsageError(
+                f"Could not get stock info for {ticker}. Try again later."
+            )
+
         await ctx.send(f"{stock.symbol=}, {stock.datapoints[-1]=}")
 
     @stock.autocomplete("ticker")
