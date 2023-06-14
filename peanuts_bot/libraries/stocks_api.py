@@ -32,7 +32,6 @@ class DailyDP:
     high: float
     low: float
     close: float
-    volume: int
 
 
 @dataclass
@@ -61,7 +60,6 @@ class DailyStock:
                     high=float(v["2. high"]),
                     low=float(v["3. low"]),
                     close=float(v["4. close"]),
-                    volume=int(v["6. volume"]),
                 )
                 for k, v in d["Time Series (Daily)"].items()
             ]

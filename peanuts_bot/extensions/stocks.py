@@ -30,7 +30,7 @@ class StocksExtension(ipy.Extension):
                 f"Could not get stock info for {ticker}. Try again later."
             )
 
-        await ctx.send(f"{stock.symbol=}, {stock.datapoints[-1]=}")
+        await ctx.send("", embed=daily_stock_to_embed(stock))
 
     @stock.autocomplete("ticker")
     async def stock_ticker_autocomplete(self, ctx: ipy.AutocompleteContext):
@@ -53,3 +53,54 @@ class StocksExtension(ipy.Extension):
                 for r in search_results
             ]
         )
+
+
+def daily_stock_to_embed(stock: stocks_api.DailyStock) -> ipy.Embed:
+    """
+    Parse daily stock data into an informational embed
+
+    :param stock: the daily stock data
+    :return: the embed
+    """
+    embed = ipy.Embed(
+        title=f"__{stock.symbol}__ Stock Info (Daily)",
+        url=f"https://ca.finance.yahoo.com/quote/{stock.symbol}",
+        color=ipy.Color.from_hex("#8935d9"),
+        footer=ipy.EmbedFooter(text=f"Last refreshed {stock.last_refresh.date()}"),
+    )
+    today = stock.datapoints[-1]
+
+    today_fields = [
+        ipy.EmbedField("Close", f"{today.close:.2f}", inline=True),
+        ipy.EmbedField("Open", f"{today.open:.2f}", inline=True),
+        ipy.EmbedField(
+            "Day's Range", f"{today.low:.2f} - {today.high:.2f}", inline=True
+        ),
+    ]
+
+    # If yesterday isn't available, only include today's data
+    if len(stock.datapoints) < 2:
+        embed.description = "**```diff\nData for yesterady unavailable```**"
+        embed.add_fields(*today_fields)
+        return embed
+
+    # Otherwise, tack on historical data
+    yesterday = stock.datapoints[-2]
+
+    # Add close difference
+    diff = today.close - yesterday.close
+    diff_percent = diff / yesterday.close * 100
+    # for negative values, the sign will already included in `diff`
+    diff_sign = "+" if diff >= 0 else ""
+    embed.description = (
+        f"**```diff\n{diff_sign}{diff:.2f} ({diff_sign}{diff_percent:.2f}%)```**"
+    )
+
+    # Insert additional fields from yesterday's data
+    all_fields = today_fields.copy()
+    all_fields.insert(
+        1, ipy.EmbedField("Previous Close", f"{yesterday.close:.2f}", inline=True)
+    )
+    embed.add_fields(*all_fields)
+
+    return embed
