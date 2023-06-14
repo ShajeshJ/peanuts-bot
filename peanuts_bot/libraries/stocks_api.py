@@ -2,8 +2,10 @@ from dataclasses import dataclass
 from datetime import datetime
 import logging
 import aiohttp
+from async_lru import alru_cache
 
 from config import CONFIG
+from peanuts_bot.errors import BotUsageError
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,7 @@ class DailyStock:
             raise ValueError(f"could not parse daily stock api response") from e
 
 
+@alru_cache()
 async def get_daily_stock(symbol: str) -> DailyStock | None:
     """
     Retrieves daily stock information for the specified security
@@ -88,6 +91,13 @@ async def get_daily_stock(symbol: str) -> DailyStock | None:
     """
     try:
         resp = await _call_stocks_api("TIME_SERIES_DAILY_ADJUSTED", symbol=symbol)
+    except StocksAPIRateLimitError:
+        logger.warning(
+            "TIME_SERIES_DAILY_ADJUSTED stock api rate limit exceeded", exc_info=True
+        )
+        raise BotUsageError(
+            "Rate limited reached for stock data API. Try again in a few minutes."
+        )
     except StocksAPIError:
         logger.warning("TIME_SERIES_DAILY_ADJUSTED stock api failed", exc_info=True)
         return None
@@ -115,6 +125,7 @@ class SymbolSearchResult:
             raise ValueError(f"could not parse symbol search api response") from e
 
 
+@alru_cache()
 async def search_symbol(search: str) -> list[SymbolSearchResult]:
     """
     Searches for a ticker symbol
