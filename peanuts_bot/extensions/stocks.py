@@ -1,5 +1,8 @@
+import io
 from typing import Annotated
 import interactions as ipy
+import matplotlib
+import matplotlib.pyplot as plt
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
@@ -33,7 +36,11 @@ class StocksExtension(ipy.Extension):
         if not stock.datapoints:
             raise BotUsageError(f"no daily datapoints available for {ticker}")
 
-        await ctx.send("", embed=daily_stock_to_embed(stock))
+        graph_file = _gen_stock_graph(stock)
+
+        await ctx.send(
+            "", file=graph_file, embed=daily_stock_to_embed(stock, graph=graph_file)
+        )
 
     @stock.autocomplete("ticker")
     async def stock_ticker_autocomplete(self, ctx: ipy.AutocompleteContext):
@@ -58,7 +65,9 @@ class StocksExtension(ipy.Extension):
         )
 
 
-def daily_stock_to_embed(stock: stocks_api.DailyStock) -> ipy.Embed:
+def daily_stock_to_embed(
+    stock: stocks_api.DailyStock, *, graph: ipy.File | None = None
+) -> ipy.Embed:
     """
     Parse daily stock data into an informational embed
 
@@ -68,6 +77,9 @@ def daily_stock_to_embed(stock: stocks_api.DailyStock) -> ipy.Embed:
     embed = _create_embed(stock=stock)
     embed = _add_description(embed, stock=stock)
     embed = _add_fields(embed, stock=stock)
+
+    if graph:
+        embed.set_image(url=f"attachment://{graph.file_name}")
 
     return embed
 
@@ -129,3 +141,35 @@ def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Emb
     embed.add_fields(*all_fields)
 
     return embed
+
+
+def _gen_stock_graph(stock: stocks_api.DailyStock) -> ipy.File | None:
+    """
+    Generates a graph of the historical stock data
+    """
+    if not stock.has_multiple_days:
+        return None
+
+    matplotlib.use("agg")
+
+    plt.figure(figsize=(15, 10), dpi=40)
+    x = [dp.date for dp in stock.datapoints]
+    y = [dp.close for dp in stock.datapoints]
+    plt.plot(x, y, color="tab:red")
+
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+
+    plt.grid(axis="both", alpha=1)
+    plt.gca().spines["top"].set_alpha(0.0)
+    plt.gca().spines["bottom"].set_alpha(0.0)
+    plt.gca().spines["right"].set_alpha(0.0)
+    plt.gca().spines["left"].set_alpha(0.0)
+
+    img_buffer = io.BytesIO()
+    plt.savefig(img_buffer, format="png", bbox_inches="tight")
+    img_buffer.seek(0)
+
+    plt.close("all")
+
+    return ipy.File(img_buffer, file_name="stockgraph.png")
