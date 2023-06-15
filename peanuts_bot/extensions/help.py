@@ -6,6 +6,7 @@ from interactions.ext.paginators import Paginator
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
+from peanuts_bot.extensions.__base__ import BaseExtension
 from peanuts_bot.libraries.discord_bot import has_admin_permission
 from peanuts_bot.libraries.types_ext import get_annotated_subtype
 
@@ -14,7 +15,7 @@ __all__ = ["HelpExtensions"]
 logger = logging.getLogger(__name__)
 
 
-class HelpExtensions(ipy.Extension):
+class HelpExtensions(BaseExtension):
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def help(self, ctx: ipy.SlashContext):
         """See help information for all commands"""

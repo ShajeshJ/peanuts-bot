@@ -12,7 +12,7 @@ SOMETHING_WRONG = "Sorry, something went wrong. Try again later."
 class BotUsageError(Exception):
     """An exception to raise when you want to surface a specific user error messages"""
 
-    pass
+    ...
 
 
 @ipy.listen(disable_default_listeners=True)

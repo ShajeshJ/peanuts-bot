@@ -6,12 +6,13 @@ import matplotlib.pyplot as plt
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
+from peanuts_bot.extensions.__base__ import BaseExtension
 from peanuts_bot.libraries import stocks_api
 
 __all__ = ["StockExtension"]
 
 
-class StockExtension(ipy.Extension):
+class StockExtension(BaseExtension):
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def stock(
         self,
