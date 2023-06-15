@@ -23,9 +23,8 @@ class StocksExtension(ipy.Extension):
             ),
         ],
     ):
-        """
-        Retrieves daily stock information for the specified security
-        """
+        """Retrieves daily stock information for the specified security"""
+
         stock = await stocks_api.get_daily_stock(ticker)
 
         if not stock:
