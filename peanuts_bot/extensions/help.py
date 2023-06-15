@@ -64,6 +64,17 @@ def requires_admin(c: ipy.InteractionCommand) -> bool:
     )
 
 
+def get_cmd_option(p: ipy.SlashCommandParameter) -> ipy.SlashCommandOption | None:
+    try:
+        _, metadata = get_annotated_subtype(p.type)
+        if isinstance(metadata[0], ipy.SlashCommandOption):
+            return metadata[0]
+    except (IndexError, TypeError):
+        pass
+
+    return None
+
+
 class SortOrder(int, Enum):
     SLASH_CMD = 0
     CONTEXT_MENU = 8
@@ -113,19 +124,20 @@ class HelpPage:
 
             cmd_args: list[tuple[str, str]] = []
 
-            for param_name, param_config in c.parameters.items():
-                _, metadata = get_annotated_subtype(param_config.type)
-                if not metadata:
-                    logger.warn(f"missing param annotations for {c.resolved_name}")
+            for param_name, param_metadata in c.parameters.items():
+                opt = get_cmd_option(param_metadata)
+                if opt is None:
+                    logger.warn(
+                        f"missing param annotations for {c.resolved_name}",
+                        exc_info=True,
+                    )
                     continue
 
-                param: ipy.SlashCommandOption = metadata[0]
-
-                field_name = f"{param_name} (_{param.type.name.lower()}_)"
-                if not param.required:
+                field_name = f"{param_name} (_{opt.type.name.lower()}_)"
+                if not opt.required:
                     field_name = f"{field_name[:-1]}, optional)"
 
-                cmd_args.append((field_name, str(param.description)))
+                cmd_args.append((field_name, str(opt.description)))
 
             return HelpPage(
                 title=f"/{c.resolved_name}",
