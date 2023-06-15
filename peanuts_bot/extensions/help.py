@@ -39,6 +39,10 @@ class HelpExtensions(ipy.Extension):
             self.bot, *(p.to_embed() for p in pages), timeout=300
         )
         help_dialog.show_select_menu = True
+        help_dialog.wrong_user_message = (
+            "This help dialog isn't for you. Use `/help` for your own."
+        )
+
         await help_dialog.send(ctx)
 
 
