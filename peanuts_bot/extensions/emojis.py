@@ -18,7 +18,7 @@ from peanuts_bot.libraries.image import (
     get_image_metadata,
 )
 
-__all__ = ["EmojiExtensions"]
+__all__ = ["EmojiExtension"]
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class EmojiRequest:
         )
 
 
-class EmojiExtensions(ipy.Extension):
+class EmojiExtension(ipy.Extension):
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def emoji(
         self,
