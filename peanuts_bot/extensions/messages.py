@@ -4,7 +4,6 @@ import interactions as ipy
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.extensions.__base__ import BaseExtension
 from peanuts_bot.libraries.discord_bot import (
     DiscordMesageLink,
     get_discord_msg_links,
@@ -17,7 +16,7 @@ __all__ = ["MessageExtension"]
 logger = logging.getLogger(__name__)
 
 
-class MessageExtension(BaseExtension):
+class MessageExtension(ipy.Extension):
     @ipy.slash_command(
         scopes=[CONFIG.GUILD_ID],
         default_member_permissions=ipy.Permissions.ADMINISTRATOR,

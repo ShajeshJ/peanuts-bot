@@ -6,7 +6,6 @@ import interactions as ipy
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.extensions.__base__ import BaseExtension
 from peanuts_bot.libraries.tabletop_roller import DiceRoll, parse_dice_roll
 
 __all__ = ["RngExtension"]
@@ -54,7 +53,7 @@ def append_new_result(msg: str, result: str, is_first: bool = False) -> str:
     return f"{msg}\n{result}{('*' if not is_first else '')}\n```"
 
 
-class RngExtension(BaseExtension):
+class RngExtension(ipy.Extension):
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def random(
         self,

@@ -2,7 +2,6 @@ import logging
 import interactions as ipy
 
 from config import CONFIG
-from peanuts_bot.extensions.__base__ import BaseExtension
 
 __all__ = ["UserExtension"]
 
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 _MODIFY_MEMBER_SAFE_ERROR_CODES = [50013]
 
 
-class UserExtension(BaseExtension):
+class UserExtension(ipy.Extension):
     @ipy.listen("on_member_update", delay_until_ready=True)
     async def add_username_to_nickname(self, event: ipy.events.MemberUpdate):
         """Updates a user's nickname to ensure that it contains their username"""

@@ -5,7 +5,6 @@ import interactions as ipy
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.extensions.__base__ import BaseExtension
 
 __all__ = ["RoleExtension"]
 
@@ -17,7 +16,7 @@ ROLE_LEAVE_ID = f"role_leave"
 _JOINABLE_PERMISSION_SET: ipy.Permissions = ipy.Permissions.NONE
 
 
-class RoleExtension(BaseExtension):
+class RoleExtension(ipy.Extension):
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def role(self, _: ipy.SlashContext):
         pass

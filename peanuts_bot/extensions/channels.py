@@ -4,14 +4,13 @@ import interactions as ipy
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.extensions.__base__ import BaseExtension
 
 __all__ = ["ChannelExtension"]
 
 logger = logging.getLogger(__name__)
 
 
-class ChannelExtension(BaseExtension):
+class ChannelExtension(ipy.Extension):
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def channel(self, _: ipy.SlashContext):
         pass

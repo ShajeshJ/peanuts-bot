@@ -3,10 +3,9 @@ import interactions as ipy
 
 from config import CONFIG
 from peanuts_bot.extensions import ALL_EXTENSIONS
-from peanuts_bot.extensions.__base__ import BaseExtension
 
 
-class LocalExtension(BaseExtension):
+class LocalExtension(ipy.Extension):
     """Commands to improve local development only"""
 
     @ipy.slash_command(

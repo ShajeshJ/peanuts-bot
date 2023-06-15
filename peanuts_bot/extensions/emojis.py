@@ -9,7 +9,6 @@ import interactions as ipy
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError, SOMETHING_WRONG
-from peanuts_bot.extensions.__base__ import BaseExtension
 from peanuts_bot.libraries.discord_bot import disable_message_components
 from peanuts_bot.libraries.image import (
     MAX_EMOJI_FILE_SIZE,
@@ -80,7 +79,7 @@ class EmojiRequest:
         )
 
 
-class EmojiExtension(BaseExtension):
+class EmojiExtension(ipy.Extension):
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def emoji(
         self,
