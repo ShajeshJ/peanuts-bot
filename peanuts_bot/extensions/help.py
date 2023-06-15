@@ -33,7 +33,7 @@ class HelpExtensions(ipy.Extension):
             for c in self.bot.application_commands
         )
         pages = [page for page in help_page_gen if page is not None]
-        pages.sort(key=lambda p: p.sort_priority)
+        pages.sort(key=lambda p: p.sort_order)
 
         help_dialog = Paginator.create_from_embeds(
             self.bot, *(p.to_embed() for p in pages), timeout=300
@@ -60,7 +60,7 @@ def requires_admin(c: ipy.InteractionCommand) -> bool:
     )
 
 
-class SortPriority(int, Enum):
+class SortOrder(int, Enum):
     SLASH_CMD = 0
     CONTEXT_MENU = 8
     SLASH_ADMIN_CMD = 16
@@ -72,7 +72,7 @@ class HelpPage:
     desc: str
     args: list[tuple[str, str]] = field(default_factory=list)
     color: ipy.Color = field(default_factory=ipy.Color)
-    sort_priority: SortPriority = SortPriority.SLASH_CMD
+    sort_order: SortOrder = SortOrder.SLASH_CMD
 
     def to_embed(self) -> ipy.Embed:
         embed = ipy.Embed(title=self.title, description=self.desc, color=self.color)
@@ -95,7 +95,7 @@ class HelpPage:
                 title=f"{c.resolved_name}",
                 desc=f"Available in right click context menus on {c.type.name.lower()}s",
                 color=color,
-                sort_priority=SortPriority.CONTEXT_MENU,
+                sort_order=SortOrder.CONTEXT_MENU,
             )
 
         elif isinstance(c, ipy.SlashCommand):
@@ -128,10 +128,10 @@ class HelpPage:
                 desc=f"```{desc}```",
                 args=cmd_args,
                 color=color,
-                sort_priority=(
-                    SortPriority.SLASH_CMD
+                sort_order=(
+                    SortOrder.SLASH_CMD
                     if not is_admin_cmd
-                    else SortPriority.SLASH_ADMIN_CMD
+                    else SortOrder.SLASH_ADMIN_CMD
                 ),
             )
 
