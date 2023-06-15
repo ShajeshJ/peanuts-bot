@@ -46,35 +46,6 @@ class HelpExtensions(ipy.Extension):
         await help_dialog.send(ctx)
 
 
-def get_slash_cmd_desc(c: ipy.SlashCommand) -> str | None:
-    default_desc = "No Description Set"
-
-    if str(c.description) != default_desc:
-        return str(c.description)
-    elif str(c.sub_cmd_description) != default_desc:
-        return str(c.sub_cmd_description)
-    else:
-        return None  # a parent command with no use
-
-
-def requires_admin(c: ipy.InteractionCommand) -> bool:
-    return bool(
-        c.default_member_permissions is not None
-        and c.default_member_permissions & ipy.Permissions.ADMINISTRATOR
-    )
-
-
-def get_cmd_option(p: ipy.SlashCommandParameter) -> ipy.SlashCommandOption | None:
-    try:
-        _, metadata = get_annotated_subtype(p.type)
-        if isinstance(metadata[0], ipy.SlashCommandOption):
-            return metadata[0]
-    except (IndexError, TypeError):
-        pass
-
-    return None
-
-
 class SortOrder(int, Enum):
     SLASH_CMD = 0
     CONTEXT_MENU = 8
@@ -114,18 +85,18 @@ class HelpPage:
             )
 
         elif isinstance(c, ipy.SlashCommand):
-            is_admin_cmd = requires_admin(c)
+            is_admin_cmd = _requires_admin(c)
             if is_admin_cmd and ignore_admin:
                 return None
 
-            desc = get_slash_cmd_desc(c)
+            desc = _get_slash_cmd_desc(c)
             if desc is None:
                 return None
 
             cmd_args: list[tuple[str, str]] = []
 
             for param_name, param_metadata in c.parameters.items():
-                opt = get_cmd_option(param_metadata)
+                opt = _get_cmd_option(param_metadata)
                 if opt is None:
                     logger.warn(
                         f"missing param annotations for {c.resolved_name}",
@@ -152,3 +123,32 @@ class HelpPage:
             )
 
         raise ValueError(f"unknown command {c.resolved_name}")
+
+
+def _get_slash_cmd_desc(c: ipy.SlashCommand) -> str | None:
+    default_desc = "No Description Set"
+
+    if str(c.description) != default_desc:
+        return str(c.description)
+    elif str(c.sub_cmd_description) != default_desc:
+        return str(c.sub_cmd_description)
+    else:
+        return None  # a parent command with no use
+
+
+def _requires_admin(c: ipy.InteractionCommand) -> bool:
+    return bool(
+        c.default_member_permissions is not None
+        and c.default_member_permissions & ipy.Permissions.ADMINISTRATOR
+    )
+
+
+def _get_cmd_option(p: ipy.SlashCommandParameter) -> ipy.SlashCommandOption | None:
+    try:
+        _, metadata = get_annotated_subtype(p.type)
+        if isinstance(metadata[0], ipy.SlashCommandOption):
+            return metadata[0]
+    except (IndexError, TypeError):
+        pass
+
+    return None
