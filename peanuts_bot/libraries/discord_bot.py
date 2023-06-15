@@ -65,7 +65,3 @@ async def disable_message_components(msg: ipy.Message | None) -> ipy.Message | N
     return await msg.edit(
         components=ipy.utils.misc_utils.disable_components(*msg.components)
     )
-
-
-def has_admin_permission(p: ipy.Permissions | None) -> bool:
-    return bool(p is not None and p & ipy.Permissions.ADMINISTRATOR)

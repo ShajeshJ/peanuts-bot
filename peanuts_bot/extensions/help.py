@@ -6,7 +6,7 @@ from interactions.ext.paginators import Paginator
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.discord_bot import has_admin_permission
+from peanuts_bot.extensions.internals.protocols import HelpCmdProto
 from peanuts_bot.libraries.types_ext import get_annotated_subtype
 
 __all__ = ["HelpExtensions"]
@@ -26,10 +26,10 @@ class HelpExtensions(ipy.Extension):
         if not isinstance(ctx.author, ipy.Member):
             raise BotUsageError("this command is only available in guilds")
 
+        skip_admin_help = not ctx.author.has_permission(ipy.Permissions.ADMINISTRATOR)
+
         help_page_gen = (
-            HelpPage.from_command(
-                c, ignore_admin=not has_admin_permission(ctx.app_permissions)
-            )
+            HelpPage.from_command(c, ignore_admin=skip_admin_help)
             for c in self.bot.application_commands
         )
         pages = [page for page in help_page_gen if page is not None]
@@ -53,10 +53,17 @@ def get_slash_cmd_desc(c: ipy.SlashCommand) -> str | None:
         return None  # a parent command with no use
 
 
+def requires_admin(c: ipy.InteractionCommand) -> bool:
+    return bool(
+        c.default_member_permissions is not None
+        and c.default_member_permissions & ipy.Permissions.ADMINISTRATOR
+    )
+
+
 class SortPriority(int, Enum):
     SLASH_CMD = 0
-    SLASH_ADMIN_CMD = 8
-    CONTEXT_MENU = 16
+    CONTEXT_MENU = 8
+    SLASH_ADMIN_CMD = 16
 
 
 @dataclass
@@ -64,10 +71,11 @@ class HelpPage:
     title: str
     desc: str
     args: list[tuple[str, str]] = field(default_factory=list)
+    color: ipy.Color = field(default_factory=ipy.Color)
     sort_priority: SortPriority = SortPriority.SLASH_CMD
 
     def to_embed(self) -> ipy.Embed:
-        embed = ipy.Embed(title=self.title, description=self.desc)
+        embed = ipy.Embed(title=self.title, description=self.desc, color=self.color)
         for field_name, field_value in self.args:
             embed.add_field(name=field_name, value=field_value)
         return embed
@@ -76,15 +84,22 @@ class HelpPage:
     def from_command(
         c: ipy.InteractionCommand, /, *, ignore_admin=True
     ) -> "HelpPage | None":
+        color = (
+            c.extension.__class__.get_help_color()
+            if c.extension and isinstance(c.extension, HelpCmdProto)
+            else ipy.Color()
+        )
+
         if isinstance(c, ipy.ContextMenu):
             return HelpPage(
                 title=f"{c.resolved_name}",
                 desc=f"Available in right click context menus on {c.type.name.lower()}s",
+                color=color,
                 sort_priority=SortPriority.CONTEXT_MENU,
             )
 
         elif isinstance(c, ipy.SlashCommand):
-            is_admin_cmd = has_admin_permission(c.default_member_permissions)
+            is_admin_cmd = requires_admin(c)
             if is_admin_cmd and ignore_admin:
                 return None
 
@@ -112,6 +127,7 @@ class HelpPage:
                 title=f"/{c.resolved_name}",
                 desc=f"```{desc}```",
                 args=cmd_args,
+                color=color,
                 sort_priority=(
                     SortPriority.SLASH_CMD
                     if not is_admin_cmd
