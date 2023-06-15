@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
-import typing
 import interactions as ipy
 from interactions.ext.paginators import Paginator
 
 from config import CONFIG
 from peanuts_bot.errors import BotUsageError
+from peanuts_bot.libraries.discord_bot import has_admin_permission
+from peanuts_bot.libraries.types_ext import get_annotated_subtype
 
 __all__ = ["HelpExtensions"]
 
@@ -23,10 +24,7 @@ class HelpExtensions(ipy.Extension):
 
         help_page_gen = (
             HelpPage.from_command(
-                c,
-                ignore_admin=not ctx.author.has_permission(
-                    ipy.Permissions.ADMINISTRATOR
-                ),
+                c, ignore_admin=not has_admin_permission(ctx.app_permissions)
             )
             for c in self.bot.application_commands
         )
@@ -40,8 +38,15 @@ class HelpExtensions(ipy.Extension):
         await help_dialog.send(ctx)
 
 
-def desc_is_missing(d: ipy.LocalisedDesc | str) -> bool:
-    return str(d) == "No Description Set"
+def get_slash_cmd_desc(c: ipy.SlashCommand) -> str | None:
+    default_desc = "No Description Set"
+
+    if str(c.description) != default_desc:
+        return str(c.description)
+    elif str(c.sub_cmd_description) != default_desc:
+        return str(c.sub_cmd_description)
+    else:
+        return None  # a parent command with no use
 
 
 class SortPriority(int, Enum):
@@ -75,45 +80,34 @@ class HelpPage:
             )
 
         elif isinstance(c, ipy.SlashCommand):
-            is_admin_cmd = bool(
-                c.default_member_permissions is not None
-                and c.default_member_permissions & ipy.Permissions.ADMINISTRATOR
-            )
+            is_admin_cmd = has_admin_permission(c.default_member_permissions)
             if is_admin_cmd and ignore_admin:
                 return None
 
-            if not desc_is_missing(c.description):
-                desc = c.description
-            elif not desc_is_missing(c.sub_cmd_description):
-                desc = c.sub_cmd_description
-            else:
-                return None  # a parent command with no use; skip
+            desc = get_slash_cmd_desc(c)
+            if desc is None:
+                return None
 
-            title = f"/{c.resolved_name}"
-            desc = f"```{desc}```"
-
-            args: list[tuple[str, str]] = []
+            cmd_args: list[tuple[str, str]] = []
 
             for param_name, param_config in c.parameters.items():
-                if typing.get_origin(param_config.type) is not typing.Annotated:
-                    logger.warning(
-                        f"unknown type for option in command {c.resolved_name}"
-                    )
+                _, metadata = get_annotated_subtype(param_config.type)
+                if not metadata:
+                    logger.warn(f"missing param annotations for {c.resolved_name}")
                     continue
 
-                annotation_args = typing.get_args(param_config.type)
-                param: ipy.SlashCommandOption = annotation_args[1]
+                param: ipy.SlashCommandOption = metadata[0]
 
-                field_name = f"{param_name} ({param.type.name.lower()})"
+                field_name = f"{param_name} (_{param.type.name.lower()}_)"
                 if not param.required:
-                    field_name = f"_{field_name[:-1]} | optional)_"
+                    field_name = f"{field_name[:-1]}, optional)"
 
-                args.append((field_name, f"{param.description}"))
+                cmd_args.append((field_name, str(param.description)))
 
             return HelpPage(
-                title=title,
-                desc=desc,
-                args=args,
+                title=f"/{c.resolved_name}",
+                desc=f"```{desc}```",
+                args=cmd_args,
                 sort_priority=(
                     SortPriority.SLASH_CMD
                     if not is_admin_cmd

@@ -2,6 +2,19 @@ import types
 import typing as t
 
 
+def get_annotated_subtype(t_annotation) -> tuple[type, list[t.Any]]:
+    """
+    Given an `Annotated` type, will return its underlying type, and additional metadata.
+
+    Raises `TypeError` if not given an `Annotated` type.
+    """
+    if t.get_origin(t_annotation) is not t.Annotated:
+        raise TypeError(f"<{t_annotation}> is not an `Annotated` type")
+
+    main_type, *metadata = t.get_args(t_annotation)
+    return main_type, metadata
+
+
 def get_optional_subtype(t_annotation):
     """
     Given an optional type annotation, will return the subtype. Otherwise raises `ValueError`.
