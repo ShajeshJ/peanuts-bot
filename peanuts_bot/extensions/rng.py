@@ -54,6 +54,10 @@ def append_new_result(msg: str, result: str, is_first: bool = False) -> str:
 
 
 class RngExtension(ipy.Extension):
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.CARROT
+
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def random(
         self,

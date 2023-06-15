@@ -17,6 +17,10 @@ _JOINABLE_PERMISSION_SET: ipy.Permissions = ipy.Permissions.NONE
 
 
 class RoleExtension(ipy.Extension):
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.ALIZARIN
+
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def role(self, _: ipy.SlashContext):
         pass

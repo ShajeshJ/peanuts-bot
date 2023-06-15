@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class MessageExtension(ipy.Extension):
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.CLOUDS
+
     @ipy.slash_command(
         scopes=[CONFIG.GUILD_ID],
         default_member_permissions=ipy.Permissions.ADMINISTRATOR,

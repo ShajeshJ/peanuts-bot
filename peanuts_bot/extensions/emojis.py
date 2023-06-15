@@ -80,6 +80,10 @@ class EmojiRequest:
 
 
 class EmojiExtension(ipy.Extension):
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.SUNFLOWER
+
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def emoji(
         self,

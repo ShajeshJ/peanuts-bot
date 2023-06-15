@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class ChannelExtension(ipy.Extension):
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.MIDNIGHTBLUE
+
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def channel(self, _: ipy.SlashContext):
         pass

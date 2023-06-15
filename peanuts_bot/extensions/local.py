@@ -8,6 +8,10 @@ from peanuts_bot.extensions import ALL_EXTENSIONS
 class LocalExtension(ipy.Extension):
     """Commands to improve local development only"""
 
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.ASBESTOS
+
     @ipy.slash_command(
         scopes=[CONFIG.GUILD_ID],
         default_member_permissions=ipy.Permissions.ADMINISTRATOR,

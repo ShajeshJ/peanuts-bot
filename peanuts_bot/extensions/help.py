@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class HelpExtensions(ipy.Extension):
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.PETERRIVER
+
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def help(self, ctx: ipy.SlashContext):
         """See help information for all commands"""

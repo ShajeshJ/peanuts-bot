@@ -12,6 +12,10 @@ __all__ = ["StockExtension"]
 
 
 class StockExtension(ipy.Extension):
+    @staticmethod
+    def get_help_color() -> ipy.Color:
+        return ipy.FlatUIColors.WISTERIA
+
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def stock(
         self,
