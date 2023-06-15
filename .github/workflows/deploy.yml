@@ -1,0 +1,16 @@
+name: Deploy shagbot
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  deploy:
+    name: Trigger Deploy Hook
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: curl deploy hook
+        run: curl -X POST ${{ secrets.DEPLOY_HOOK }}
