@@ -12,6 +12,7 @@ bot = ipy.Client(
     debug_scope=CONFIG.GUILD_ID,
     delete_unused_application_cmds=True,
     send_command_tracebacks=False,
+    activity=ipy.Activity.create("/help", type=ipy.ActivityType.WATCHING),
 )
 
 bot.add_listener(on_error)
