@@ -29,5 +29,9 @@ class EnvConfig(EnvLoader):
     def IS_DEBUG(self) -> bool:
         return self.LOG_LEVEL == "DEBUG"
 
+    @property
+    def IS_STOCKS_API_CONNECTED(self) -> bool:
+        return bool(self.STOCKS_API_URL) and bool(self.STOCKS_API_KEY)
+
 
 CONFIG = EnvConfig()

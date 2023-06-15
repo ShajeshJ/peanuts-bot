@@ -18,15 +18,6 @@ class StocksAPIRateLimitError(StocksAPIError):
     pass
 
 
-def is_stocks_api_connected() -> bool:
-    """
-    Checks if the stocks api is connected
-
-    :return: True if connected, False otherwise
-    """
-    return bool(CONFIG.STOCKS_API_KEY) and bool(CONFIG.STOCKS_API_URL)
-
-
 @dataclass
 class DailyDP:
     date: datetime
@@ -157,7 +148,7 @@ async def _call_stocks_api(f: str, /, **kwargs) -> dict:
     :param kwargs: the arguments to pass to the function
     :return: the json response
     """
-    if not is_stocks_api_connected():
+    if not CONFIG.IS_STOCKS_API_CONNECTED:
         raise RuntimeError("stocks api is not connected")
 
     kwargs["apikey"] = CONFIG.STOCKS_API_KEY
