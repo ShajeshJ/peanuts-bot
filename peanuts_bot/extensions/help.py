@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class HelpExtensions(ipy.Extension):
     @staticmethod
     def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.PETERRIVER
+        return ipy.FlatUIColors.MIDNIGHTBLUE
 
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
     async def help(self, ctx: ipy.SlashContext):
