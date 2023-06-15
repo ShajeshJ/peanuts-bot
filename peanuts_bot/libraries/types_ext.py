@@ -38,6 +38,42 @@ def get_optional_subtype(t_annotation):
     return subtype
 
 
+##############################
+# get_annotated_subtype tests
+##############################
+
+assert get_annotated_subtype(t.Annotated[str, "metadata"]) == (str, ["metadata"])
+assert get_annotated_subtype(t.Annotated[object, str, "world"]) == (
+    object,
+    [str, "world"],
+)
+assert get_annotated_subtype(t.Annotated[str, None]) == (str, [None])
+assert get_annotated_subtype(t.Annotated[None, str]) == (type(None), [str])
+
+fail_cases = [
+    str,
+    object,
+    None,
+    str | bool,
+    t.Union[str, int],
+    t.Optional[str],
+    list[str],
+    dict[str, None],
+]
+
+for case in fail_cases:
+    try:
+        val = get_annotated_subtype(case)
+        assert False, f"{case} returned {val} for annotated subtype"
+    except TypeError:
+        pass
+
+
+#############################
+# get_optional_subtype tests
+#############################
+
+
 assert get_optional_subtype(str | None) == str
 assert get_optional_subtype(None | str) == str
 assert get_optional_subtype(t.Union[None, str]) == str
