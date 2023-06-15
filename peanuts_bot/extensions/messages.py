@@ -11,12 +11,12 @@ from peanuts_bot.libraries.discord_bot import (
 )
 from peanuts_bot.libraries.image import get_image_url
 
-__all__ = ["MessagesExtension"]
+__all__ = ["MessageExtension"]
 
 logger = logging.getLogger(__name__)
 
 
-class MessagesExtension(ipy.Extension):
+class MessageExtension(ipy.Extension):
     @ipy.slash_command(
         scopes=[CONFIG.GUILD_ID],
         default_member_permissions=ipy.Permissions.ADMINISTRATOR,
