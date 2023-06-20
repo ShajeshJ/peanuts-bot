@@ -1,5 +1,6 @@
 name: Deploy shagbot
 on:
+  workflow_call:
   push:
     branches:
       - main
