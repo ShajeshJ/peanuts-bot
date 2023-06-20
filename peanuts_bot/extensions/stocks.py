@@ -4,7 +4,7 @@ import interactions as ipy
 import matplotlib
 import matplotlib.pyplot as plt
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries import stocks_api
 

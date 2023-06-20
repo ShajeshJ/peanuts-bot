@@ -4,7 +4,7 @@ import logging
 import aiohttp
 from async_lru import alru_cache
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 
 logger = logging.getLogger(__name__)

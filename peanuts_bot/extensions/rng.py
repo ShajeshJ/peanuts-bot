@@ -4,7 +4,7 @@ import re
 from typing import Annotated
 import interactions as ipy
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.tabletop_roller import DiceRoll, parse_dice_roll
 

@@ -2,7 +2,7 @@ import logging
 from typing import Annotated
 import interactions as ipy
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.discord_bot import (
     DiscordMesageLink,

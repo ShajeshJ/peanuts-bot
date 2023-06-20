@@ -3,7 +3,7 @@ from typing import Annotated, Callable, NamedTuple
 from collections.abc import Iterator, AsyncIterator
 import interactions as ipy
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 
 __all__ = ["RoleExtension"]

@@ -1,5 +1,5 @@
 import interactions as ipy
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 from peanuts_bot.extensions import ALL_EXTENSIONS
 
 from peanuts_bot.errors import on_error

@@ -1,7 +1,7 @@
 import logging
 import interactions as ipy
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 
 __all__ = ["UserExtension"]
 

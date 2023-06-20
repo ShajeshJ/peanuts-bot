@@ -3,7 +3,7 @@ import traceback
 
 import interactions as ipy
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 
 logger = logging.getLogger(__name__)
 SOMETHING_WRONG = "Sorry, something went wrong. Try again later."

@@ -4,7 +4,7 @@ import logging
 import interactions as ipy
 from interactions.ext.paginators import Paginator
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.extensions.internals.protocols import HelpCmdProto
 from peanuts_bot.libraries.types_ext import get_annotated_subtype

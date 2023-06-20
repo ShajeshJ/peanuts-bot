@@ -2,7 +2,7 @@ import logging
 from typing import NamedTuple
 import interactions as ipy
 
-from config import CONFIG
+from peanuts_bot.config import CONFIG
 
 logger = logging.getLogger(__name__)
 
