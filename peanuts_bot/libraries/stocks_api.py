@@ -84,7 +84,7 @@ async def get_daily_stock(symbol: str) -> DailyStock | None:
         resp = await _call_stocks_api("TIME_SERIES_DAILY_ADJUSTED", symbol=symbol)
     except StocksAPIRateLimitError:
         logger.warning(
-            "TIME_SERIES_DAILY_ADJUSTED stock api rate limit exceede", exc_info=True
+            "TIME_SERIES_DAILY_ADJUSTED stock api rate limit exceeded", exc_info=True
         )
         raise BotUsageError(
             "Rate limited reached for stock data API. Try again in a few minutes."
