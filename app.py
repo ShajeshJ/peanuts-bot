@@ -28,15 +28,8 @@ def get_log_handler() -> logging.Handler:
     return ColourHandler()
 
 
-def init_app_dependencies():
-    """
-    Run any initializer code that's required for the
-    core app to boot up correctly
-    """
-
-    env = os.environ.setdefault("ENV", "local")
-    if env == "local":
-        load_dotenv(".env")
+def configure_logging():
+    """Configures logging"""
 
     logging.basicConfig(
         force=True,
@@ -45,15 +38,27 @@ def init_app_dependencies():
     )
 
 
+def setup_env() -> str:
+    """Sets up environment variables, and returns the current environment"""
+
+    env = os.environ.setdefault("ENV", "local")
+    if env == "local":
+        load_dotenv(".env")
+    return env
+
+
 def main():
     """
     Entrypoint of the app
     """
-    init_app_dependencies()
+    env = setup_env()
+    configure_logging()
 
-    from keep_alive import keep_alive
+    # keep_alive is only used in production
+    if env != "local":
+        from keep_alive import keep_alive
 
-    keep_alive()
+        keep_alive()
 
     from peanuts_bot import bot
 
