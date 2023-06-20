@@ -31,14 +31,14 @@ class DailyDP:
 class DailyStock:
     """Represents daily stock information"""
 
-    """the ticker symbol"""
     symbol: str
+    """the ticker symbol"""
 
-    """the last time the data was refreshed"""
     last_refresh: datetime
+    """the last time the data was refreshed"""
 
-    """the daily datapoints, sorted by ascending date"""
     datapoints: list[DailyDP]
+    """the daily datapoints, sorted by ascending date"""
 
     @property
     def has_multiple_days(self) -> bool:
