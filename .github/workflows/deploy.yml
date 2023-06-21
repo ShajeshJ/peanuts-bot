@@ -31,7 +31,7 @@ jobs:
         run: poetry install --only=ci
       - name: Deploy Hook
         id: deploy
-        run: echo "id=$(curl -X POST ${{ secrets.DEPLOY_HOOK }} | jq .deploy.id)" >> "$GITHUB_OUTPUT"
+        run: echo "id=$(curl -X POST ${{ secrets.DEPLOY_HOOK }} | jq -r '.deploy.id')" >> "$GITHUB_OUTPUT"
       - name: Poll Deploy
         env:
           RENDER_DEPLOY_ID: ${{ steps.deploy.outputs.id }}
