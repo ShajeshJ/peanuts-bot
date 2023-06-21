@@ -9,7 +9,7 @@ discord bot for a private server, written in python ([version here](.tool-versio
 1. Run `make run` to boot up the service.
 1. During the first boot ups, you may see errors like `KeyError: Missing required env var ""`
     - To fix this, specify an appropriate value for the missing variable in the `.env` file
-    - A complete list of configurable environment variables can be found in [config.py](config.py)
+    - A complete list of configurable environment variables can be found in [config.py](peanuts_bot/config.py)
 
 ## Pinning new dependencies
 To add new packages, use `poetry add <package>==<version>`
@@ -17,5 +17,5 @@ To add new packages, use `poetry add <package>==<version>`
 > For non-prod dependencies, use the `--group` option (e.g. `poetry add --group=dev <dev-package>==<version>`)
 
 ## Troubleshooting
-### Poetry says `poetry.lock` and `pyproject.toml` don't match
-Assuming the dependencies in [pyproject.toml](pyproject.toml) are correct, just run `poetry lock --no-update` and commit the changes
+- poetry says `poetry.lock` and `pyproject.toml` don't match
+    - Assuming the dependencies in [pyproject.toml](pyproject.toml) are correct, just run `poetry lock --no-update` and commit the changes

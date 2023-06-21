@@ -2,7 +2,7 @@
 name = "peanuts-bot"
 version = "2.0.0"
 description = ""
-authors = ["Shajesh Jegatheeswaran <shajesh.14@gmail.com>"]
+authors = ["Shajesh Jegatheeswaran"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "peanuts_bot"}]
