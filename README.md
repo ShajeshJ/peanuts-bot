@@ -2,7 +2,7 @@
 discord bot for a private server, written in python ([version here](.tool-versions)) using [interactions-py](https://github.com/interactions-py/interactions.py)
 
 ## Initializing the repo
-> **Note**
+> **Note**:
 > [asdf](https://asdf-vm.com) tool versioning is supported
 1. Ensure you have [python](https://www.python.org) and [poetry](https://python-poetry.org) installed ([versions listed here](.tool-versions))
 1. Run `make init` to initalize service dependencies
@@ -13,7 +13,7 @@ discord bot for a private server, written in python ([version here](.tool-versio
 
 ## Pinning new dependencies
 To add new packages, use `poetry add <package>==<version>`
-> **Warning**
+> **Warning**:
 > For non-prod dependencies, use the `--group` option (e.g. `poetry add --group=dev <dev-package>==<version>`)
 
 ## Troubleshooting
