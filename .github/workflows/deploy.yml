@@ -10,9 +10,30 @@ on:
 
 jobs:
   deploy:
-    name: Trigger Deploy Hook
+    name: Deploy Bot
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: curl deploy hook
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Python Version
+        id: python
+        run: |
+          echo "::set-output name=version::$(
+            cat .tool-versions |
+            grep -w "python" |
+            cut -d ' ' -f2
+          )"
+      - name: Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "${{ steps.python.outputs.version }}"
+          cache: poetry
+      - name: CI Script Dependencies
+        run: poetry install --only=ci
+      - name: Temp Test Build
+        run: |
+          python --version
+          pip list
+      - name: Deploy Hook
         run: curl -X POST ${{ secrets.DEPLOY_HOOK }}
