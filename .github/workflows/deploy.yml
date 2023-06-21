@@ -21,10 +21,6 @@ jobs:
         run: |
           echo "python=$(cat .tool-versions | grep -w "python" | cut -d ' ' -f2)" >> "$GITHUB_OUTPUT"
           echo "poetry=$(cat .tool-versions | grep -w "poetry" | cut -d ' ' -f2)" >> "$GITHUB_OUTPUT"
-      - name: Test Versions
-        run: |
-          echo "${{ steps.versions.outputs.python }}"
-          echo "${{ steps.versions.outputs.poetry }}"
       - name: Python
         uses: actions/setup-python@v4
         with:
@@ -35,7 +31,7 @@ jobs:
         run: poetry install --only=ci
       - name: Temp Test Build
         run: |
-          python --version
-          pip list
-      - name: Deploy Hook
-        run: curl -X POST ${{ secrets.DEPLOY_HOOK }}
+          poetry run python --version
+          poetry run pip list
+      # - name: Deploy Hook
+      #   run: curl -X POST ${{ secrets.DEPLOY_HOOK }}
