@@ -29,5 +29,13 @@ jobs:
         run: python3 -m pip install poetry=="${{ steps.versions.outputs.poetry }}"
       - name: CI Script Dependencies
         run: poetry install --only=ci
-      # - name: Deploy Hook
-      #   run: curl -X POST ${{ secrets.DEPLOY_HOOK }}
+      - name: Deploy Hook
+        id: deploy
+        run: echo "id=$(curl -X POST ${{ secrets.DEPLOY_HOOK }} | jq .deploy.id)" >> "$GITHUB_OUTPUT"
+      - name: Poll Deploy
+        env:
+          RENDER_DEPLOY_ID: ${{ steps.deploy.outputs.id }}
+          RENDER_WEBHOOK: ${{ secrets.DEPLOY_HOOK }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_POLL_RATE_S: 5
+        run: poetry run python3 .github/workflows/poll_deploy.py
