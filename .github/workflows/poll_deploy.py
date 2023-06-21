@@ -94,6 +94,7 @@ async def poll(input: ScriptInputs) -> str:
         status, is_done = await get_deploy_status(
             input.service_id, input.deploy_id, input.api_key
         )
+        print(f"polled status: {status}")
 
     if not status:
         raise RuntimeError("could not get deploy status")
@@ -108,10 +109,9 @@ def main():
     deploy_status = loop.run_until_complete(poll(input))
     loop.close()
 
-    print(f"deploy status: {deploy_status}")
+    print(f"final deploy status: {deploy_status}")
     if deploy_status != Status.live:
-        print("deploy is not live")
-        exit(1)
+        raise RuntimeError("deploy is not live")
 
 
 if __name__ == "__main__":

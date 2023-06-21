@@ -1,4 +1,4 @@
-name: Deploy shagbot
+name: Bot Deploys
 on:
   workflow_call:
   push:
