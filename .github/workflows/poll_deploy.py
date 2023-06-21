@@ -39,8 +39,7 @@ class ScriptInputs:
         except KeyError as e:
             raise ValueError(f"missing environment variable: {e}") from e
 
-        service_regex = re.compile(r"/deploy/(srv-[a-z0-9]+)")
-        m = service_regex.match(webhook)
+        m = re.search(r"\/deploy\/(srv-[a-z0-9]+)", webhook)
         if not m:
             raise ValueError(f"could not extract service_id from webhook secret")
 
