@@ -3,7 +3,7 @@ discord bot for a private server, written in python ([version here](.tool-versio
 
 ## Initializing the repo
 > **Note**
-> asdf tool versioning is supported
+> [asdf](https://asdf-vm.com) tool versioning is supported
 1. Ensure you have [python](https://www.python.org) and [poetry](https://python-poetry.org) installed ([versions listed here](.tool-versions))
 1. Run `make init` to initalize service dependencies
 1. Run `make run` to boot up the service.
