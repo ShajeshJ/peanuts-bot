@@ -1,10 +1,21 @@
 import asyncio
 from enum import Enum
+import logging
 from typing import Any
 import aiohttp
 import os
 import re
 from dataclasses import dataclass
+
+
+handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+
+formatter = logging.Formatter("[%(levelname)s] %(message)s")
+handler.setFormatter(formatter)
+
+logging.basicConfig(force=True, handlers=[handler], level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 _BASE_URL = "https://api.render.com/v1"
@@ -94,7 +105,7 @@ async def poll(input: ScriptInputs) -> str:
         status, is_done = await get_deploy_status(
             input.service_id, input.deploy_id, input.api_key
         )
-        print(f"polled status: {status}")
+        logger.info(f"polled status: {status}")
 
     if not status:
         raise RuntimeError("could not get deploy status")
@@ -107,7 +118,7 @@ def main():
 
     deploy_status = asyncio.run(poll(input))
 
-    print(f"final deploy status: {deploy_status}")
+    logger.info(f"final deploy status: {deploy_status}")
     if deploy_status != Status.live:
         raise RuntimeError("deploy is not live")
 
