@@ -1,6 +1,5 @@
 import asyncio
 from enum import Enum
-import logging
 from typing import Any
 import aiohttp
 import os
@@ -95,7 +94,7 @@ async def poll(input: ScriptInputs) -> str:
         status, is_done = await get_deploy_status(
             input.service_id, input.deploy_id, input.api_key
         )
-        logging.info(f"polled status: {status}")
+        print(f"polled status: {status}")
 
     if not status:
         raise RuntimeError("could not get deploy status")
@@ -108,7 +107,7 @@ def main():
 
     deploy_status = asyncio.run(poll(input))
 
-    logging.info(f"final deploy status: {deploy_status}")
+    print(f"final deploy status: {deploy_status}")
     if deploy_status != Status.live:
         raise RuntimeError("deploy is not live")
 
