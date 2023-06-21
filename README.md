@@ -2,15 +2,20 @@
 discord bot for a private server, written in python ([version here](.tool-versions)) using [interactions-py](https://github.com/interactions-py/interactions.py)
 
 ## Initializing the repo
+> **Note**
+> asdf tool versioning is supported
+1. Ensure you have [python](https://www.python.org) and [poetry](https://python-poetry.org) installed ([versions listed here](.tool-versions))
 1. Run `make init` to initalize service dependencies
-2. Run `make run` to boot up the service.
-3. During the first boot ups, you may see errors like `KeyError: Missing required env var ""`
+1. Run `make run` to boot up the service.
+1. During the first boot ups, you may see errors like `KeyError: Missing required env var ""`
     - To fix this, specify an appropriate value for the missing variable in the `.env` file
     - A complete list of configurable environment variables can be found in [config.py](config.py)
 
-## Pinning new dependencies to requirements files
-1. Make sure your venv packages have all packages already pinned in the existing requirements files (i.e. `make pip_install`)
-2. Run `make list_dep_diff` and make sure there is no diff output
-3. Activate the .venv and install the new package with pip
-4. Run `make list_dep_diff` again. You should now see a diff, containing your package and any transitive package updates
-5. Ensure each package listed is pinned appropriately in either the regular or the dev requirement files.
+## Pinning new dependencies
+To add new packages, use `poetry add <package>==<version>`
+> **Warning**
+> For non-prod dependencies, use the `--group` option (e.g. `poetry add --group=dev <dev-package>==<version>`)
+
+## Troubleshooting
+### Poetry says `poetry.lock` and `pyproject.toml` don't match
+Assuming the dependencies in [pyproject.toml](pyproject.toml) are correct, just run `poetry lock --no-update` and commit the changes
