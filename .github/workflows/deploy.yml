@@ -19,16 +19,8 @@ jobs:
       - name: Tool Versions
         id: versions
         run: |
-          echo "python=$(
-            cat .tool-versions |
-            grep -w "python" |
-            cut -d ' ' -f2
-          ) >> $GITHUB_OUTPUT"
-          echo "poetry=$(
-            cat .tool-versions |
-            grep -w "poetry" |
-            cut -d ' ' -f2
-          )" >> $GITHUB_OUTPUT"
+          echo "python=$(cat .tool-versions | grep -w "python" | cut -d ' ' -f2) >> $GITHUB_OUTPUT"
+          echo "poetry=$(cat .tool-versions | grep -w "poetry" | cut -d ' ' -f2) >> $GITHUB_OUTPUT"
       - name: Python
         uses: actions/setup-python@v4
         with:
