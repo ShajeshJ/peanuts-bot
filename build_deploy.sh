@@ -11,4 +11,4 @@ echo "installing poetry@$poetry_version"
 
 python -m pip install "poetry==$poetry_version"
 
-poetry install
+poetry install --only=main
