@@ -29,9 +29,5 @@ jobs:
         run: python3 -m pip install poetry=="${{ steps.versions.outputs.poetry }}"
       - name: CI Script Dependencies
         run: poetry install --only=ci
-      - name: Temp Test Build
-        run: |
-          poetry run python --version
-          poetry run pip list
       # - name: Deploy Hook
       #   run: curl -X POST ${{ secrets.DEPLOY_HOOK }}
