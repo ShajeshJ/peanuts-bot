@@ -15,5 +15,8 @@ poetry_install:
 
 init: check_poetry create_env_file create_venv poetry_install
 
+fix_lock:
+	poetry lock --no-update
+
 run:
 	$(venv_activate) && python app.py
