@@ -21,6 +21,10 @@ jobs:
         run: |
           echo "python=$(cat .tool-versions | grep -w "python" | cut -d ' ' -f2) >> $GITHUB_OUTPUT"
           echo "poetry=$(cat .tool-versions | grep -w "poetry" | cut -d ' ' -f2) >> $GITHUB_OUTPUT"
+      - name: Test Versions
+        run: |
+          echo "${{ steps.versions.outputs.python }}"
+          echo "${{ steps.versions.outputs.poetry }}"
       - name: Python
         uses: actions/setup-python@v4
         with:
