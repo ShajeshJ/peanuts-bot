@@ -51,7 +51,7 @@ class ALPHAV(Protocol):
 
     @staticmethod
     def IS_CONNECTED(c: EnvConfig) -> TypeGuard["ALPHAV"]:
-        return bool(CONFIG.ALPHAV_API_URL) and bool(CONFIG.ALPHAV_KEY)
+        return bool(c.ALPHAV_API_URL) and bool(c.ALPHAV_KEY)
 
 
 CONFIG = EnvConfig()
