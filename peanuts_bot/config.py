@@ -1,4 +1,4 @@
-from typing import Protocol, TypeGuard
+from typing import Protocol, runtime_checkable
 from peanuts_bot.libraries.env import EnvLoader
 
 __all__ = ["CONFIG"]
@@ -45,13 +45,10 @@ class EnvConfig(EnvLoader):
         return self.LOG_LEVEL == "DEBUG"
 
 
-class ALPHAV(Protocol):
+@runtime_checkable
+class ALPHAV_CONNECTED(Protocol):
     ALPHAV_API_URL: str
     ALPHAV_KEY: str
-
-    @staticmethod
-    def IS_CONNECTED(c: EnvConfig) -> TypeGuard["ALPHAV"]:
-        return bool(c.ALPHAV_API_URL) and bool(c.ALPHAV_KEY)
 
 
 CONFIG = EnvConfig()

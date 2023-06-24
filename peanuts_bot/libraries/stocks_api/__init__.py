@@ -4,7 +4,7 @@ import logging
 import aiohttp
 from async_lru import alru_cache
 
-from peanuts_bot.config import ALPHAV, CONFIG
+from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.stocks_api.errors import (
     StocksAPIError,
@@ -144,7 +144,7 @@ async def _call_stocks_api(f: str, /, **kwargs) -> dict:
     :param kwargs: the arguments to pass to the function
     :return: the json response
     """
-    if not ALPHAV.IS_CONNECTED(CONFIG):
+    if not isinstance(CONFIG, ALPHAV_CONNECTED):
         raise RuntimeError("stocks api is not connected")
 
     kwargs["apikey"] = CONFIG.ALPHAV_KEY

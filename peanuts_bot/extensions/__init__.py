@@ -2,7 +2,7 @@ import logging
 from typing import NamedTuple
 import interactions as ipy
 
-from peanuts_bot.config import ALPHAV, CONFIG
+from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ ALL_EXTENSIONS: list[ExtInfo] = [
     ExtInfo("Message", "peanuts_bot.extensions.messages"),
 ]
 
-if ALPHAV.IS_CONNECTED(CONFIG):
+if isinstance(CONFIG, ALPHAV_CONNECTED):
     ALL_EXTENSIONS.append(ExtInfo("Stock", "peanuts_bot.extensions.stocks"))
 else:
     logger.warning("stocks api is not connected, skipping stocks commands")
