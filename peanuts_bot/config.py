@@ -1,3 +1,4 @@
+from typing import Protocol, TypeGuard
 from peanuts_bot.libraries.env import EnvLoader
 
 __all__ = ["CONFIG"]
@@ -43,15 +44,14 @@ class EnvConfig(EnvLoader):
         """True if the bot is running in debug mode; False otherwise"""
         return self.LOG_LEVEL == "DEBUG"
 
-    @property
-    def IS_ALPHAV_CONNECTED(self) -> bool:
-        """True if the bot is connected to the alphavantage.co API; False otherwise"""
-        return bool(self.ALPHAV_API_URL) and bool(self.ALPHAV_KEY)
 
-    @property
-    def IS_MSH_CONNECTED(self) -> bool:
-        """True if the bot is connected to the market.sh API; False otherwise"""
-        return bool(self.MSH_API_URL) and bool(self.MSH_API_TOKEN)
+class ALPHAV(Protocol):
+    ALPHAV_API_URL: str
+    ALPHAV_KEY: str
+
+    @staticmethod
+    def IS_CONNECTED(c: EnvConfig) -> TypeGuard["ALPHAV"]:
+        return bool(CONFIG.ALPHAV_API_URL) and bool(CONFIG.ALPHAV_KEY)
 
 
 CONFIG = EnvConfig()
