@@ -25,7 +25,7 @@ ALL_EXTENSIONS: list[ExtInfo] = [
     ExtInfo("Message", "peanuts_bot.extensions.messages"),
 ]
 
-if CONFIG.IS_STOCKS_API_CONNECTED:
+if CONFIG.IS_ALPHAV_CONNECTED:
     ALL_EXTENSIONS.append(ExtInfo("Stock", "peanuts_bot.extensions.stocks"))
 else:
     logger.warning("stocks api is not connected, skipping stocks commands")
