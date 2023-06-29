@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 import logging
+from typing import Iterable
 import aiohttp
 from async_lru import alru_cache
 
@@ -15,12 +16,21 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class DailyDP:
+class DailyPrice:
     date: datetime
-    open: float
-    high: float
-    low: float
+    """the date the prices were recorded"""
+
     close: float
+    """the closing price at the end of the day"""
+
+    open: float | None = None
+    """the opening price at the start of the day"""
+
+    high: float | None = None
+    """the highest price during the day"""
+
+    low: float | None = None
+    """the lowest price during the day"""
 
 
 @dataclass
@@ -30,18 +40,27 @@ class DailyStock:
     symbol: str
     """the ticker symbol"""
 
-    last_refresh: datetime
+    refreshed_at: datetime
     """the last time the data was refreshed"""
 
-    datapoints: list[DailyDP]
+    daily_prices: list[DailyPrice]
     """the daily datapoints, sorted by ascending date"""
 
     @property
-    def has_multiple_days(self) -> bool:
-        """
-        True if the stock has multiple days of data; False otherwise
-        """
-        return len(self.datapoints) > 1
+    def today(self) -> DailyPrice:
+        """the latest daily price (usually the current day)"""
+        if not self.daily_prices:
+            raise AttributeError("daily price is not available")
+
+        return self.daily_prices[-1]
+
+    @property
+    def yesterday(self) -> DailyPrice:
+        """the second latest daily price (usually the previous day)"""
+        if len(self.daily_prices) < 2:
+            raise AttributeError("yesterday's daily price is not available")
+
+        return self.daily_prices[-2]
 
     @staticmethod
     def from_api(d: dict[str, dict]) -> "DailyStock":
@@ -50,7 +69,7 @@ class DailyStock:
             symbol = meta["2. Symbol"].upper()
             last_refresh = datetime.fromisoformat(meta["3. Last Refreshed"])
             datapoints = [
-                DailyDP(
+                DailyPrice(
                     date=datetime.fromisoformat(k),
                     open=float(v["1. open"]),
                     high=float(v["2. high"]),
@@ -62,10 +81,30 @@ class DailyStock:
             datapoints.sort(key=lambda dp: dp.date)
 
             return DailyStock(
-                symbol=symbol, last_refresh=last_refresh, datapoints=datapoints
+                symbol=symbol, refreshed_at=last_refresh, daily_prices=datapoints
             )
         except Exception as e:
             raise ValueError(f"could not parse daily stock api response") from e
+
+
+@dataclass
+class SymbolSearchResult:
+    symbol: str
+    name: str
+    type: str
+    match_score: float
+
+    @staticmethod
+    def from_api(d: dict[str, str]) -> "SymbolSearchResult":
+        try:
+            return SymbolSearchResult(
+                symbol=d["1. symbol"],
+                name=d["2. name"],
+                type=d["3. type"],
+                match_score=float(d["9. matchScore"]),
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            raise ValueError(f"could not parse symbol search api response") from e
 
 
 @alru_cache()
@@ -90,26 +129,6 @@ async def get_daily_stock(symbol: str) -> DailyStock | None:
         return None
 
     return DailyStock.from_api(resp)
-
-
-@dataclass
-class SymbolSearchResult:
-    symbol: str
-    name: str
-    type: str
-    match_score: float
-
-    @staticmethod
-    def from_api(d: dict[str, str]) -> "SymbolSearchResult":
-        try:
-            return SymbolSearchResult(
-                symbol=d["1. symbol"],
-                name=d["2. name"],
-                type=d["3. type"],
-                match_score=float(d["9. matchScore"]),
-            )
-        except (KeyError, ValueError, TypeError) as e:
-            raise ValueError(f"could not parse symbol search api response") from e
 
 
 @alru_cache()

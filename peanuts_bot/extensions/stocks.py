@@ -38,7 +38,7 @@ class StockExtension(ipy.Extension):
                 f"Could not get stock info for {ticker}. Try again later."
             )
 
-        if not stock.datapoints:
+        if not stock.daily_prices:
             raise BotUsageError(f"no daily datapoints available for {ticker}")
 
         graph_file = _gen_stock_graph(stock)
@@ -97,7 +97,7 @@ def _create_embed(*, stock: stocks_api.DailyStock) -> ipy.Embed:
         title=f"__{stock.symbol}__ Stock Info (Daily)",
         url=f"https://ca.finance.yahoo.com/quote/{stock.symbol}",
         color=ipy.Color.from_hex("#8935d9"),
-        footer=ipy.EmbedFooter(text=f"Last refreshed {stock.last_refresh.date()}"),
+        footer=ipy.EmbedFooter(text=f"Last refreshed {stock.refreshed_at.date()}"),
     )
 
 
@@ -105,11 +105,8 @@ def _add_description(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ip
     """
     Adds the description to the embed
     """
-    if not stock.has_multiple_days:
-        embed.description = "**```diff\nData for yesterady unavailable```**"
-    else:
-        today = stock.datapoints[-1]
-        yesterday = stock.datapoints[-2]
+    try:
+        today, yesterday = stock.today, stock.yesterday
 
         # Calculate close difference
         diff = today.close - yesterday.close
@@ -120,6 +117,8 @@ def _add_description(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ip
         embed.description = (
             f"**```diff\n{diff_sign}{diff:.2f} ({diff_sign}{diff_percent:.2f}%)```**"
         )
+    except AttributeError:
+        embed.description = "**```diff\nData for yesterady unavailable```**"
 
     return embed
 
@@ -128,7 +127,7 @@ def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Emb
     """
     Adds the fields to the embed
     """
-    today = stock.datapoints[-1]
+    today = stock.today
     all_fields = [
         ipy.EmbedField("Close", f"{today.close:.2f}", inline=True),
         ipy.EmbedField("Open", f"{today.open:.2f}", inline=True),
@@ -137,11 +136,15 @@ def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Emb
         ),
     ]
 
-    if stock.has_multiple_days:
-        yesterday = stock.datapoints[-2]
+    try:
         all_fields.insert(
-            1, ipy.EmbedField("Previous Close", f"{yesterday.close:.2f}", inline=True)
+            1,
+            ipy.EmbedField(
+                "Previous Close", f"{stock.yesterday.close:.2f}", inline=True
+            ),
         )
+    except AttributeError:
+        pass
 
     embed.add_fields(*all_fields)
 
@@ -152,14 +155,14 @@ def _gen_stock_graph(stock: stocks_api.DailyStock) -> ipy.File | None:
     """
     Generates a graph of the historical stock data
     """
-    if not stock.has_multiple_days:
+    if len(stock.daily_prices) < 2:
         return None
 
     matplotlib.use("agg")
 
     plt.figure(figsize=(15, 10), dpi=40)
-    x = [dp.date for dp in stock.datapoints]
-    y = [dp.close for dp in stock.datapoints]
+    x = [dp.date for dp in stock.daily_prices]
+    y = [dp.close for dp in stock.daily_prices]
     plt.plot(x, y, color="tab:red")
 
     plt.xticks(fontsize=24)
