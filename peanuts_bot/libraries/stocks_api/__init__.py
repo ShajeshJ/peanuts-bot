@@ -10,7 +10,7 @@ class DailyPrice:
     date: datetime
     """the date the prices were recorded"""
 
-    close: float | None = None
+    close: float
     """the closing price at the end of the day"""
 
     open: float | None = None
