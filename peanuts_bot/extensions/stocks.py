@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries import stocks_api
+from peanuts_bot.libraries.stocks_api.providers import alphav
 
 __all__ = ["StockExtension"]
 
@@ -31,7 +32,7 @@ class StockExtension(ipy.Extension):
     ):
         """Retrieves daily stock information for the specified security"""
 
-        stock = await stocks_api.get_daily_stock(ticker)
+        stock = await alphav.get_daily_stock(ticker)
 
         if not stock:
             raise BotUsageError(
@@ -61,7 +62,7 @@ class StockExtension(ipy.Extension):
                 label = label[:97] + "..."
             return label
 
-        search_results = await stocks_api.search_symbol(ctx.input_text)
+        search_results = await alphav.search_symbol(ctx.input_text)
         await ctx.send(
             [
                 ipy.SlashCommandChoice(name=_get_option_label(r), value=r.symbol)
