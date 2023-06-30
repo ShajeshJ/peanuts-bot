@@ -5,7 +5,7 @@ from async_lru import alru_cache
 from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
 from peanuts_bot.errors import BotUsageError
 
-from peanuts_bot.libraries.stocks_api import DailyPrice, DailyStock, TickerSymbol
+from peanuts_bot.libraries.stocks_api import DailyPrice, StockHistory, TickerSymbol
 from peanuts_bot.libraries.stocks_api.errors import (
     StocksAPIError,
     StocksAPIRateLimitError,
@@ -14,7 +14,7 @@ from peanuts_bot.libraries.stocks_api.errors import (
 logger = logging.getLogger(__name__)
 
 
-def _api_to_daily_stock(d: dict[str, dict]) -> DailyStock:
+def _api_to_daily_stock(d: dict[str, dict]) -> StockHistory:
     """converts the api response to a daily stock object"""
     try:
         meta = d["Meta Data"]
@@ -32,7 +32,7 @@ def _api_to_daily_stock(d: dict[str, dict]) -> DailyStock:
         ]
         datapoints.sort(key=lambda dp: dp.date)
 
-        return DailyStock(
+        return StockHistory(
             symbol=symbol, refreshed_at=last_refresh, daily_prices=datapoints
         )
     except Exception as e:
@@ -53,7 +53,7 @@ def _api_to_symbol_search(d: dict[str, str]) -> TickerSymbol:
 
 
 @alru_cache
-async def get_daily_stock(symbol: str) -> DailyStock | None:
+async def get_daily_stock(symbol: str) -> StockHistory | None:
     """
     Retrieves daily stock information for the specified security
 

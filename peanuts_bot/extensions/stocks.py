@@ -72,7 +72,7 @@ class StockExtension(ipy.Extension):
 
 
 def daily_stock_to_embed(
-    stock: stocks_api.DailyStock, *, graph: ipy.File | None = None
+    stock: stocks_api.StockHistory, *, graph: ipy.File | None = None
 ) -> ipy.Embed:
     """
     Parse daily stock data into an informational embed
@@ -90,7 +90,7 @@ def daily_stock_to_embed(
     return embed
 
 
-def _create_embed(*, stock: stocks_api.DailyStock) -> ipy.Embed:
+def _create_embed(*, stock: stocks_api.StockHistory) -> ipy.Embed:
     """
     Creates an embed for the stock data
     """
@@ -102,7 +102,9 @@ def _create_embed(*, stock: stocks_api.DailyStock) -> ipy.Embed:
     )
 
 
-def _add_description(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Embed:
+def _add_description(
+    embed: ipy.Embed, /, *, stock: stocks_api.StockHistory
+) -> ipy.Embed:
     """
     Adds the description to the embed
     """
@@ -124,7 +126,7 @@ def _add_description(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ip
     return embed
 
 
-def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Embed:
+def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.StockHistory) -> ipy.Embed:
     """
     Adds the fields to the embed
     """
@@ -152,7 +154,7 @@ def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.DailyStock) -> ipy.Emb
     return embed
 
 
-def _gen_stock_graph(stock: stocks_api.DailyStock) -> ipy.File | None:
+def _gen_stock_graph(stock: stocks_api.StockHistory) -> ipy.File | None:
     """
     Generates a graph of the historical stock data
     """

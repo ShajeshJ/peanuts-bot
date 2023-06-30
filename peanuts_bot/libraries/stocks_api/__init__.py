@@ -24,7 +24,7 @@ class DailyPrice:
 
 
 @dataclass
-class DailyStock:
+class StockHistory:
     """Represents daily stock information"""
 
     symbol: str
