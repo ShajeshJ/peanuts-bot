@@ -1,8 +1,28 @@
 from dataclasses import dataclass
-from datetime import datetime
+from enum import Enum
 import logging
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 logger = logging.getLogger(__name__)
+
+
+class TimeWindow(relativedelta, Enum):
+    WEEK = relativedelta(weeks=1)
+    MONTH = relativedelta(months=1)
+    THREE_MONTHS = relativedelta(months=3)
+
+    def __add__(self, other):
+        return self.value.__add__(other)
+
+    def __radd__(self, other):
+        return self.value.__radd__(other)
+
+    def __sub__(self, other):
+        return self.value.__sub__(other)
+
+    def __rsub__(self, other):
+        return self.value.__rsub__(other)
 
 
 @dataclass
