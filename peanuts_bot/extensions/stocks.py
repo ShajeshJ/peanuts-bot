@@ -56,7 +56,7 @@ class StockExtension(ipy.Extension):
         if not ctx.input_text:
             return
 
-        def _get_option_label(r: stocks_api.SymbolSearchResult) -> str:
+        def _get_option_label(r: stocks_api.TickerSymbol) -> str:
             label = f"{r.symbol} ({r.name})"
             if len(label) > 100:
                 label = label[:97] + "..."

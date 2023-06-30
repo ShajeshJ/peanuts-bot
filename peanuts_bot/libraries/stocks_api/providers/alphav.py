@@ -5,7 +5,7 @@ from async_lru import alru_cache
 from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
 from peanuts_bot.errors import BotUsageError
 
-from peanuts_bot.libraries.stocks_api import DailyPrice, DailyStock, SymbolSearchResult
+from peanuts_bot.libraries.stocks_api import DailyPrice, DailyStock, TickerSymbol
 from peanuts_bot.libraries.stocks_api.errors import (
     StocksAPIError,
     StocksAPIRateLimitError,
@@ -39,10 +39,10 @@ def _api_to_daily_stock(d: dict[str, dict]) -> DailyStock:
         raise ValueError(f"could not parse daily stock api response") from e
 
 
-def _api_to_symbol_search(d: dict[str, str]) -> SymbolSearchResult:
+def _api_to_symbol_search(d: dict[str, str]) -> TickerSymbol:
     """converts a single item from the symbol search the api response to a object"""
     try:
-        return SymbolSearchResult(
+        return TickerSymbol(
             symbol=d["1. symbol"],
             name=d["2. name"],
             type=d["3. type"],
@@ -77,7 +77,7 @@ async def get_daily_stock(symbol: str) -> DailyStock | None:
 
 
 @alru_cache
-async def search_symbol(search: str) -> list[SymbolSearchResult]:
+async def search_symbol(search: str) -> list[TickerSymbol]:
     """
     Searches for a ticker symbol
 

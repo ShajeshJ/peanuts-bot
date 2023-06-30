@@ -1,16 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import Iterable
-import aiohttp
-from async_lru import alru_cache
-
-from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
-from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.stocks_api.errors import (
-    StocksAPIError,
-    StocksAPIRateLimitError,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +54,7 @@ class DailyStock:
 
 
 @dataclass
-class SymbolSearchResult:
+class TickerSymbol:
     symbol: str
     name: str
     type: str
