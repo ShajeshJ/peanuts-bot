@@ -107,7 +107,7 @@ class SymbolSearchResult:
             raise ValueError(f"could not parse symbol search api response") from e
 
 
-@alru_cache()
+@alru_cache
 async def get_daily_stock(symbol: str) -> DailyStock | None:
     """
     Retrieves daily stock information for the specified security
@@ -131,7 +131,7 @@ async def get_daily_stock(symbol: str) -> DailyStock | None:
     return DailyStock.from_api(resp)
 
 
-@alru_cache()
+@alru_cache
 async def search_symbol(search: str) -> list[SymbolSearchResult]:
     """
     Searches for a ticker symbol
