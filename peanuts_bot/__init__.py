@@ -18,8 +18,8 @@ bot = ipy.Client(
 bot.add_listener(on_error)
 
 # Load bot extensions
-for ext in ALL_EXTENSIONS:
-    bot.load_extension(ext.module_path)
+for ext_info in ALL_EXTENSIONS:
+    bot.load_extension(ext_info.module_path)
 
 for proto in REQUIRED_EXTENSION_PROTOS:
     for ext in bot.ext.values():
