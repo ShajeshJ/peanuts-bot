@@ -7,22 +7,10 @@ from dateutil.relativedelta import relativedelta
 logger = logging.getLogger(__name__)
 
 
-class TimeWindow(relativedelta, Enum):
-    WEEK = relativedelta(weeks=1)
-    MONTH = relativedelta(months=1)
-    THREE_MONTHS = relativedelta(months=3)
-
-    def __add__(self, other):
-        return self.value.__add__(other)
-
-    def __radd__(self, other):
-        return self.value.__radd__(other)
-
-    def __sub__(self, other):
-        return self.value.__sub__(other)
-
-    def __rsub__(self, other):
-        return self.value.__rsub__(other)
+class TimeRange(relativedelta, Enum):
+    LAST_WEEK = relativedelta(weeks=1)
+    LAST_MONTH = relativedelta(months=1)
+    LAST_3_MONTHS = relativedelta(months=3)
 
 
 @dataclass
