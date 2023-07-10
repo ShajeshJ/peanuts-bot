@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries import stocks_api
-from peanuts_bot.libraries.stocks_api.providers import alphav
+from peanuts_bot.libraries.stocks_api import StockAPI, AlphaV
+from peanuts_bot.libraries.stocks_api.errors import StocksAPIRateLimitError
+from peanuts_bot.libraries.stocks_api.interface import IDaily, IStock, ITicker
 
 __all__ = ["StockExtension"]
 
@@ -32,15 +33,14 @@ class StockExtension(ipy.Extension):
     ):
         """Retrieves daily stock information for the specified security"""
 
-        stock = await alphav.get_daily_stock(ticker)
+        stock_api = StockAPI(AlphaV)
 
-        if not stock:
+        try:
+            stock = await stock_api.get_stock(ticker)
+        except StocksAPIRateLimitError:
             raise BotUsageError(
                 f"Could not get stock info for {ticker}. Try again later."
             )
-
-        if not stock.daily_prices:
-            raise BotUsageError(f"no daily datapoints available for {ticker}")
 
         graph_file = _gen_stock_graph(stock)
 
@@ -56,13 +56,15 @@ class StockExtension(ipy.Extension):
         if not ctx.input_text:
             return
 
-        def _get_option_label(r: stocks_api.TickerSymbol) -> str:
+        def _get_option_label(r: ITicker) -> str:
             label = f"{r.symbol} ({r.name})"
             if len(label) > 100:
                 label = label[:97] + "..."
             return label
 
-        search_results = await alphav.search_symbol(ctx.input_text)
+        stock_api = StockAPI(AlphaV)
+
+        search_results = await stock_api.search_symbol(ctx.input_text)
         await ctx.send(
             [
                 ipy.SlashCommandChoice(name=_get_option_label(r), value=r.symbol)
@@ -72,7 +74,7 @@ class StockExtension(ipy.Extension):
 
 
 def daily_stock_to_embed(
-    stock: stocks_api.StockHistory, *, graph: ipy.File | None = None
+    stock: IStock[IDaily], *, graph: ipy.File | None = None
 ) -> ipy.Embed:
     """
     Parse daily stock data into an informational embed
@@ -90,7 +92,7 @@ def daily_stock_to_embed(
     return embed
 
 
-def _create_embed(*, stock: stocks_api.StockHistory) -> ipy.Embed:
+def _create_embed(*, stock: IStock[IDaily]) -> ipy.Embed:
     """
     Creates an embed for the stock data
     """
@@ -102,59 +104,42 @@ def _create_embed(*, stock: stocks_api.StockHistory) -> ipy.Embed:
     )
 
 
-def _add_description(
-    embed: ipy.Embed, /, *, stock: stocks_api.StockHistory
-) -> ipy.Embed:
+def _add_description(embed: ipy.Embed, /, *, stock: IStock[IDaily]) -> ipy.Embed:
     """
     Adds the description to the embed
     """
     try:
         today, yesterday = stock.today, stock.yesterday
-
-        # Calculate close difference
-        diff = today.close - yesterday.close
-        diff_percent = diff / yesterday.close * 100
-
-        # Format close difference; for negative values, the sign will already included in `diff`
-        diff_sign = "+" if diff >= 0 else ""
-        embed.description = (
-            f"**```diff\n{diff_sign}{diff:.2f} ({diff_sign}{diff_percent:.2f}%)```**"
-        )
     except AttributeError:
         embed.description = "**```diff\nData for yesterady unavailable```**"
+        return embed
+
+    # Calculate close difference
+    diff = today.close - yesterday.close
+    diff_percent = diff / yesterday.close * 100
+
+    # Format close difference; for negative values, the sign will already included in `diff`
+    diff_sign = "+" if diff >= 0 else ""
+    embed.description = (
+        f"**```diff\n{diff_sign}{diff:.2f} ({diff_sign}{diff_percent:.2f}%)```**"
+    )
 
     return embed
 
 
-def _add_fields(embed: ipy.Embed, /, *, stock: stocks_api.StockHistory) -> ipy.Embed:
+def _add_fields(embed: ipy.Embed, /, *, stock: IStock[IDaily]) -> ipy.Embed:
     """
     Adds the fields to the embed
     """
-    today = stock.today
     all_fields = [
-        ipy.EmbedField("Close", f"{today.close:.2f}", inline=True),
-        ipy.EmbedField("Open", f"{today.open:.2f}", inline=True),
-        ipy.EmbedField(
-            "Day's Range", f"{today.low:.2f} - {today.high:.2f}", inline=True
-        ),
+        ipy.EmbedField(name, value, inline=True) for name, value in stock.get_summary()
     ]
-
-    try:
-        all_fields.insert(
-            1,
-            ipy.EmbedField(
-                "Previous Close", f"{stock.yesterday.close:.2f}", inline=True
-            ),
-        )
-    except AttributeError:
-        pass
-
     embed.add_fields(*all_fields)
 
     return embed
 
 
-def _gen_stock_graph(stock: stocks_api.StockHistory) -> ipy.File | None:
+def _gen_stock_graph(stock: IStock[IDaily]) -> ipy.File | None:
     """
     Generates a graph of the historical stock data
     """

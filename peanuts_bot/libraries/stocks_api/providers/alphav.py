@@ -1,21 +1,95 @@
+from dataclasses import dataclass
 from datetime import datetime
 import logging
-import aiohttp
-from async_lru import alru_cache
-from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
-from peanuts_bot.errors import BotUsageError
 
-from peanuts_bot.libraries.stocks_api import DailyPrice, StockHistory, TickerSymbol
+import aiohttp
+from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
 from peanuts_bot.libraries.stocks_api.errors import (
     StocksAPIError,
     StocksAPIRateLimitError,
 )
+from peanuts_bot.libraries.stocks_api.interface import (
+    IDaily,
+    IStock,
+    IStockProvider,
+    ITicker,
+    TimeFilter,
+)
+
 
 logger = logging.getLogger(__name__)
 
 
-def _api_to_daily_stock(d: dict[str, dict]) -> StockHistory:
-    """converts the api response to a daily stock object"""
+@dataclass
+class TickerResult(ITicker):
+    type: str
+    """the type of security"""
+
+
+@dataclass
+class DailyPrice(IDaily):
+    open: float
+    """the opening price at the start of the day"""
+
+    high: float
+    """the highest price during the day"""
+
+    low: float
+    """the lowest price during the day"""
+
+
+@dataclass
+class StockHistory(IStock[DailyPrice]):
+    def get_summary(self) -> list[tuple[str, str]]:
+        return super().get_summary() + [
+            ("Open", f"{self.today.open:.2f}"),
+            ("Day's Range", f"{self.today.low:.2f} - {self.today.high:.2f}"),
+        ]
+
+
+class AlphaV(IStockProvider[StockHistory, TickerResult]):
+    """api wrapper for the AlphaVantage API"""
+
+    @staticmethod
+    async def search_symbol(query: str) -> list[TickerResult]:
+        resp = await _call_stocks_api("SYMBOL_SEARCH", keywords=query)
+
+        matches = resp.get("bestMatches")
+        if not isinstance(matches, list):
+            raise StocksAPIError(f"could not parse symbol search api response {resp}")
+
+        search_results = [_parse_symbol_result(d) for d in matches]
+        search_results = [r for r in search_results if r.type.lower() == "equity"]
+        return search_results
+
+    @staticmethod
+    async def get_stock(ticker: str, filter: TimeFilter) -> StockHistory:
+        resp = await _call_stocks_api("TIME_SERIES_DAILY_ADJUSTED", symbol=ticker)
+        stock = _parse_stock_api_result(resp)
+
+        max_date = datetime.now()
+        min_date = max_date - filter.value
+        stock.daily_prices = [
+            dp for dp in stock.daily_prices if min_date <= dp.date <= max_date
+        ]
+        return stock
+
+
+def _parse_symbol_result(d: dict[str, str]) -> TickerResult:
+    """converts a single item from the symbol search the api response to a object"""
+    try:
+        return TickerResult(
+            symbol=d["1. symbol"],
+            name=d["2. name"],
+            relevance=float(d["9. matchScore"]),
+            type=d["3. type"],
+        )
+    except (KeyError, ValueError, TypeError) as e:
+        raise StocksAPIError(f"could not parse symbol search api response") from e
+
+
+def _parse_stock_api_result(d: dict[str, dict]) -> StockHistory:
+    """parses the stock history from the given api response"""
     try:
         meta = d["Meta Data"]
         symbol = meta["2. Symbol"].upper()
@@ -23,81 +97,19 @@ def _api_to_daily_stock(d: dict[str, dict]) -> StockHistory:
         datapoints = [
             DailyPrice(
                 date=datetime.fromisoformat(k),
+                close=float(v["4. close"]),
                 open=float(v["1. open"]),
                 high=float(v["2. high"]),
                 low=float(v["3. low"]),
-                close=float(v["4. close"]),
             )
             for k, v in d["Time Series (Daily)"].items()
         ]
-        datapoints.sort(key=lambda dp: dp.date)
 
         return StockHistory(
             symbol=symbol, refreshed_at=last_refresh, daily_prices=datapoints
         )
     except Exception as e:
-        raise ValueError(f"could not parse daily stock api response") from e
-
-
-def _api_to_symbol_search(d: dict[str, str]) -> TickerSymbol:
-    """converts a single item from the symbol search the api response to a object"""
-    try:
-        return TickerSymbol(
-            symbol=d["1. symbol"],
-            name=d["2. name"],
-            type=d["3. type"],
-            match_score=float(d["9. matchScore"]),
-        )
-    except (KeyError, ValueError, TypeError) as e:
-        raise ValueError(f"could not parse symbol search api response") from e
-
-
-@alru_cache
-async def get_daily_stock(symbol: str) -> StockHistory | None:
-    """
-    Retrieves daily stock information for the specified security
-
-    :param symbol: the ticker symbol
-    :return: the daily stock information
-    """
-    try:
-        resp = await _call_stocks_api("TIME_SERIES_DAILY_ADJUSTED", symbol=symbol)
-    except StocksAPIRateLimitError:
-        logger.warning(
-            "TIME_SERIES_DAILY_ADJUSTED stock api rate limit exceeded", exc_info=True
-        )
-        raise BotUsageError(
-            "Rate limited reached for stock data API. Try again in a few minutes."
-        )
-    except StocksAPIError:
-        logger.warning("TIME_SERIES_DAILY_ADJUSTED stock api failed", exc_info=True)
-        return None
-
-    return _api_to_daily_stock(resp)
-
-
-@alru_cache
-async def search_symbol(search: str) -> list[TickerSymbol]:
-    """
-    Searches for a ticker symbol
-
-    :param search: the search term
-    :return: a list of ticker symbols
-    """
-    try:
-        resp = await _call_stocks_api("SYMBOL_SEARCH", keywords=search)
-    except StocksAPIError:
-        logger.warning("SYMBOL_SEARCH stock api failed", exc_info=True)
-        return []
-
-    matches = resp.get("bestMatches")
-    if not isinstance(matches, list):
-        raise ValueError(f"could not parse symbol search api response {resp}")
-
-    search_results = [_api_to_symbol_search(d) for d in matches]
-    search_results = [r for r in search_results if r.type.lower() == "equity"]
-    search_results.sort(key=lambda r: r.match_score, reverse=True)
-    return search_results
+        raise StocksAPIError(f"could not parse daily stock api response") from e
 
 
 async def _call_stocks_api(f: str, /, **kwargs) -> dict:
@@ -109,7 +121,7 @@ async def _call_stocks_api(f: str, /, **kwargs) -> dict:
     :return: the json response
     """
     if not isinstance(CONFIG, ALPHAV_CONNECTED):
-        raise RuntimeError("stocks api is not connected")
+        raise StocksAPIError("stocks api is not connected")
 
     kwargs["apikey"] = CONFIG.ALPHAV_KEY
     kwargs["function"] = f
@@ -121,8 +133,10 @@ async def _call_stocks_api(f: str, /, **kwargs) -> dict:
             even on a failure. Unfortunately, the only way to detect failure is to look
             for certain keys in the response body"""
             if "Note" in data:
+                logger.warning(f"{f} failed due to rate limiting")
                 raise StocksAPIRateLimitError(data["Note"])
             elif "Error Message" in data:
+                logger.warning(f"{f} stock api failed")
                 raise StocksAPIError(data["Error Message"])
 
             return data
