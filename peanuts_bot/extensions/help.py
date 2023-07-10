@@ -98,10 +98,11 @@ class HelpPage:
             for param_name, param_metadata in c.parameters.items():
                 opt = _get_cmd_option(param_metadata)
                 if opt is None:
-                    logger.warn(
-                        f"missing param annotations for {c.resolved_name}",
-                        exc_info=True,
-                    )
+                    logger.warn(f"missing param annotations for {c.resolved_name}")
+                    continue
+
+                if not isinstance(opt.type, ipy.OptionType):
+                    logger.warn(f"missing param type info for {c.resolved_name}")
                     continue
 
                 field_name = f"{param_name} (_{opt.type.name.lower()}_)"
