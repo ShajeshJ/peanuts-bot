@@ -67,7 +67,7 @@ class StockExtension(ipy.Extension):
         search_results = await stock_api.search_symbol(ctx.input_text)
         await ctx.send(
             [
-                ipy.SlashCommandChoice(name=_get_option_label(r), value=r.symbol)
+                ipy.SlashCommandChoice(name=_get_option_label(r), value=r.symbol_id)
                 for r in search_results
             ]
         )

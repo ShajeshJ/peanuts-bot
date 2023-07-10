@@ -79,6 +79,7 @@ def _parse_symbol_result(d: dict[str, str]) -> _TickerResultAV:
     """converts a single item from the symbol search the api response to a object"""
     try:
         return _TickerResultAV(
+            symbol_id=d["1. symbol"],
             symbol=d["1. symbol"],
             name=d["2. name"],
             relevance=float(d["9. matchScore"]),
@@ -117,11 +118,11 @@ async def _call_stocks_api(f: str, /, **kwargs) -> dict:
     Calls the given stocks api
 
     :param f: the stock api function to call
-    :param kwargs: the arguments to pass to the function
+    :param kwargs: the arguments to pass to the api function
     :return: the json response
     """
     if not isinstance(CONFIG, ALPHAV_CONNECTED):
-        raise StocksAPIError("stocks api is not connected")
+        raise StocksAPIError("AlphaV stocks api is not connected")
 
     kwargs["apikey"] = CONFIG.ALPHAV_KEY
     kwargs["function"] = f

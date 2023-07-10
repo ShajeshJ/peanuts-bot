@@ -24,6 +24,9 @@ class TimeFilter(relativedelta, Enum):
 class ITicker(ABC):
     """the interface for a ticker found from a ticker search"""
 
+    symbol_id: str
+    """the unique id for a ticker in the provider's api"""
+
     symbol: str
     """the ticker symbol"""
 
