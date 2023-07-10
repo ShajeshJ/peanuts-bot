@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class TickerResult(ITicker):
+class _TickerResultAV(ITicker):
     type: str
     """the type of security"""
 
 
 @dataclass
-class DailyPrice(IDaily):
+class _DailyPriceAV(IDaily):
     open: float
     """the opening price at the start of the day"""
 
@@ -39,7 +39,7 @@ class DailyPrice(IDaily):
 
 
 @dataclass
-class StockHistory(IStock[DailyPrice]):
+class _StockHistoryAV(IStock[_DailyPriceAV]):
     def get_summary(self) -> list[tuple[str, str]]:
         return super().get_summary() + [
             ("Open", f"{self.today.open:.2f}"),
@@ -47,11 +47,11 @@ class StockHistory(IStock[DailyPrice]):
         ]
 
 
-class AlphaV(IStockProvider[StockHistory, TickerResult]):
+class AlphaV(IStockProvider[_StockHistoryAV, _TickerResultAV]):
     """api wrapper for the AlphaVantage API"""
 
     @staticmethod
-    async def search_symbol(query: str) -> list[TickerResult]:
+    async def search_symbol(query: str) -> list[_TickerResultAV]:
         resp = await _call_stocks_api("SYMBOL_SEARCH", keywords=query)
 
         matches = resp.get("bestMatches")
@@ -63,7 +63,7 @@ class AlphaV(IStockProvider[StockHistory, TickerResult]):
         return search_results
 
     @staticmethod
-    async def get_stock(ticker: str, filter: TimeFilter) -> StockHistory:
+    async def get_stock(ticker: str, filter: TimeFilter) -> _StockHistoryAV:
         resp = await _call_stocks_api("TIME_SERIES_DAILY_ADJUSTED", symbol=ticker)
         stock = _parse_stock_api_result(resp)
 
@@ -75,10 +75,10 @@ class AlphaV(IStockProvider[StockHistory, TickerResult]):
         return stock
 
 
-def _parse_symbol_result(d: dict[str, str]) -> TickerResult:
+def _parse_symbol_result(d: dict[str, str]) -> _TickerResultAV:
     """converts a single item from the symbol search the api response to a object"""
     try:
-        return TickerResult(
+        return _TickerResultAV(
             symbol=d["1. symbol"],
             name=d["2. name"],
             relevance=float(d["9. matchScore"]),
@@ -88,14 +88,14 @@ def _parse_symbol_result(d: dict[str, str]) -> TickerResult:
         raise StocksAPIError(f"could not parse symbol search api response") from e
 
 
-def _parse_stock_api_result(d: dict[str, dict]) -> StockHistory:
+def _parse_stock_api_result(d: dict[str, dict]) -> _StockHistoryAV:
     """parses the stock history from the given api response"""
     try:
         meta = d["Meta Data"]
         symbol = meta["2. Symbol"].upper()
         last_refresh = datetime.fromisoformat(meta["3. Last Refreshed"])
         datapoints = [
-            DailyPrice(
+            _DailyPriceAV(
                 date=datetime.fromisoformat(k),
                 close=float(v["4. close"]),
                 open=float(v["1. open"]),
@@ -105,7 +105,7 @@ def _parse_stock_api_result(d: dict[str, dict]) -> StockHistory:
             for k, v in d["Time Series (Daily)"].items()
         ]
 
-        return StockHistory(
+        return _StockHistoryAV(
             symbol=symbol, refreshed_at=last_refresh, daily_prices=datapoints
         )
     except Exception as e:
