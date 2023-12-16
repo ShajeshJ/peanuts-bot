@@ -1,12 +1,12 @@
 name: Bot Deploys
 on:
   workflow_call:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - '**Makefile'
+  # push:
+  #   branches:
+  #     - main
+  #   paths-ignore:
+  #     - '**.md'
+  #     - '**Makefile'
 
 jobs:
   deploy:
