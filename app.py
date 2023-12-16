@@ -55,10 +55,10 @@ def main():
     configure_logging()
 
     # keep_alive is only used in production
-    if env != "local":
-        from keep_alive import keep_alive
+    # if env != "local":
+    #     from keep_alive import keep_alive
 
-        keep_alive()
+    #     keep_alive()
 
     from peanuts_bot import bot
 
