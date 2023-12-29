@@ -24,6 +24,8 @@ class EnvConfig(EnvLoader):
     """The guild ID for the main guild the bot serves"""
     ADMIN_USER_ID: int
     """The ID of the admin user who manages the bot"""
+    LEAGUE_ROLE_ID: int | None
+    """The ID of the league mention role"""
 
     ALPHAV_API_URL: str | None
     """The Base URL for the alphavantage.co API"""

@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Annotated
 import interactions as ipy
 
@@ -15,6 +16,9 @@ from peanuts_bot.libraries.image import get_image_url
 __all__ = ["MessageExtension"]
 
 logger = logging.getLogger(__name__)
+
+
+LEAGUE_BTN_PREFIX = "league_ping_check_"
 
 
 class MessageExtension(ipy.Extension):
@@ -137,6 +141,69 @@ class MessageExtension(ipy.Extension):
             new_content = new_content.replace(l, "https://fxtwitter.com")
 
         await msg.reply(content=new_content)
+
+
+    @ipy.listen("on_message_create", delay_until_ready=True)
+    async def send_league_ping_check(self, event: ipy.events.MessageCreate):
+        """Send a ping check message if a message contains the word league"""
+
+        if not CONFIG.LEAGUE_ROLE_ID:
+            return
+
+        msg = event.message
+
+        if msg.guild and msg.guild.id != CONFIG.GUILD_ID:
+            return
+
+        async for r in msg.mention_roles:
+            if r.id == CONFIG.LEAGUE_ROLE_ID:
+                break
+        else:
+            return
+
+        buttons: list[ipy.Button] = [
+            ipy.Button(
+                style=ipy.ButtonStyle.SUCCESS,
+                label="I'm down",
+                emoji=":white_check_mark:",
+            ),
+            ipy.Button(
+                style=ipy.ButtonStyle.SECONDARY,
+                label="If penta",
+                emoji=":five:",
+            ),
+            ipy.Button(
+                style=ipy.ButtonStyle.PRIMARY,
+                label="Aram only",
+                emoji=":arrow_upper_right:",
+            ),
+            ipy.Button(
+                style=ipy.ButtonStyle.PRIMARY,
+                label="Ranked only",
+                emoji=":ladder:",
+            ),
+            ipy.Button(
+                style=ipy.ButtonStyle.DANGER,
+                label="Nah",
+                emoji=":zzz:",
+            ),
+        ]
+        for i, b in enumerate(buttons):
+            b.custom_id = f"{LEAGUE_BTN_PREFIX}{i}"
+
+        content = "\n".join(f"{b.emoji} {b.label}:" for b in buttons)
+
+        await msg.reply(content=content, components=buttons)
+
+
+    @ipy.component_callback(re.compile(f"{LEAGUE_BTN_PREFIX}.*"))
+    async def league_ping_response(self, ctx: ipy.ComponentContext):
+        """Callback of the response status after pinging for league"""
+        new_content = ctx.message.content.replace(f" {ctx.author.mention}", "")
+        rows = new_content.split("\n")
+        idx = int(ctx.custom_id.replace(LEAGUE_BTN_PREFIX, ""))
+        rows[idx] += f" {ctx.author.mention}"
+        await ctx.edit_origin(content="\n".join(rows))
 
 
     async def _get_discord_msg(self, link: DiscordMesageLink) -> ipy.Message:
