@@ -18,7 +18,7 @@ __all__ = ["MessageExtension"]
 logger = logging.getLogger(__name__)
 
 
-LEAGUE_BTN_PREFIX = "league_ping_check_"
+LEAGUE_DROPDOWN = "league_ping_check"
 
 
 class MessageExtension(ipy.Extension):
@@ -161,47 +161,27 @@ class MessageExtension(ipy.Extension):
         else:
             return
 
-        buttons: list[ipy.Button] = [
-            ipy.Button(
-                style=ipy.ButtonStyle.SUCCESS,
-                label="I'm down",
-                emoji=":white_check_mark:",
-            ),
-            ipy.Button(
-                style=ipy.ButtonStyle.SECONDARY,
-                label="If penta",
-                emoji=":five:",
-            ),
-            ipy.Button(
-                style=ipy.ButtonStyle.PRIMARY,
-                label="Aram only",
-                emoji=":arrow_upper_right:",
-            ),
-            ipy.Button(
-                style=ipy.ButtonStyle.PRIMARY,
-                label="Ranked only",
-                emoji=":ladder:",
-            ),
-            ipy.Button(
-                style=ipy.ButtonStyle.DANGER,
-                label="Nah",
-                emoji=":zzz:",
-            ),
-        ]
-        for i, b in enumerate(buttons):
-            b.custom_id = f"{LEAGUE_BTN_PREFIX}{i}"
+        dropdown = ipy.StringSelectMenu(
+            ipy.StringSelectOption(label="I'm down", value=0, emoji=":white_check_mark:"),
+            ipy.StringSelectOption(label="Aram only", value=1, emoji=":arrow_upper_right:"),
+            ipy.StringSelectOption(label="Ranked only", value=2, emoji=":ladder:"),
+            ipy.StringSelectOption(label="If penta", value=3, emoji=":five:"),
+            ipy.StringSelectOption(label="Later", value=4, emoji=":clock830:"),
+            ipy.StringSelectOption(label="Nah", value=5, emoji=":x:"),
+            custom_id=LEAGUE_DROPDOWN,
+        )
 
-        content = "\n".join(f"{b.emoji} {b.label}:" for b in buttons)
+        content = "\n".join(f"{o.emoji} {o.label}:" for o in dropdown.options)
 
-        await msg.reply(content=content, components=buttons)
+        await msg.reply(content=content, components=[dropdown])
 
 
-    @ipy.component_callback(re.compile(f"{LEAGUE_BTN_PREFIX}.*"))
+    @ipy.component_callback(LEAGUE_DROPDOWN)
     async def league_ping_response(self, ctx: ipy.ComponentContext):
         """Callback of the response status after pinging for league"""
         new_content = ctx.message.content.replace(f" {ctx.author.mention}", "")
         rows = new_content.split("\n")
-        idx = int(ctx.custom_id.replace(LEAGUE_BTN_PREFIX, ""))
+        idx = int(ctx.values[0])
         rows[idx] += f" {ctx.author.mention}"
         await ctx.edit_origin(content="\n".join(rows))
 
