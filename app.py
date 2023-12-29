@@ -38,11 +38,11 @@ def configure_logging():
     )
 
 
-def setup_env() -> str:
-    """Sets up environment variables, and returns the current environment"""
+def load_env() -> str:
+    """Loads environment variables, and returns the current environment"""
 
     env = os.environ.setdefault("ENV", "local")
-    if env == "local":
+    if env == "local" or input("Load .env file? (y/n): ").lower() == "y":
         load_dotenv(".env")
     return env
 
@@ -51,14 +51,8 @@ def main():
     """
     Entrypoint of the app
     """
-    env = setup_env()
+    load_env()
     configure_logging()
-
-    # keep_alive is only used in production
-    # if env != "local":
-    #     from keep_alive import keep_alive
-
-    #     keep_alive()
 
     from peanuts_bot import bot
 
