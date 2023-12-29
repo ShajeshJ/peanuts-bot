@@ -5,6 +5,7 @@ import interactions as ipy
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.discord_bot import (
+    BAD_TWITTER_LINKS,
     DiscordMesageLink,
     get_discord_msg_links,
     parse_discord_msg_link,
@@ -118,6 +119,25 @@ class MessageExtension(ipy.Extension):
             return
 
         await msg.reply(embeds=quote_as_embed)
+
+    @ipy.listen("on_message_create", delay_until_ready=True)
+    async def auto_fix_twitter_links(self, event: ipy.events.MessageCreate):
+        """Echo a message with fixed twitter links if needed"""
+
+        msg = event.message
+
+        if msg.guild and msg.guild.id != CONFIG.GUILD_ID:
+            return
+
+        if not any(bad_link in msg.content for bad_link in BAD_TWITTER_LINKS):
+            return
+
+        new_content = f"Message with fixed Twitter links:\n{msg.content}".replace("\n", "\n> ")
+        for l in BAD_TWITTER_LINKS:
+            new_content = new_content.replace(l, "https://fxtwitter.com")
+
+        await msg.reply(content=new_content)
+
 
     async def _get_discord_msg(self, link: DiscordMesageLink) -> ipy.Message:
         """

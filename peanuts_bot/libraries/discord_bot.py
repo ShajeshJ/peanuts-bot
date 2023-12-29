@@ -11,6 +11,8 @@ _DISCORD_MSG_URL_REGEX = (
     r"\/(?P<m_id>[0-9]+)"
 )
 
+BAD_TWITTER_LINKS = ["https://twitter.com", "https://x.com"]
+
 
 class DiscordMesageLink(NamedTuple):
     guild_id: int
