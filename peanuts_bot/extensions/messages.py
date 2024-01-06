@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from functools import partial
 import logging
 import re
 from typing import Annotated
@@ -195,38 +196,34 @@ class MessageExtension(ipy.Extension):
     @ipy.component_callback(_LEAGUE_DROPDOWN)
     async def league_ping_response(self, ctx: ipy.ComponentContext):
         """Callback of the response status after pinging for league"""
-
-        # Removes either " @user" or " @user (time)" from the message
-        new_content = re.sub(rf" {ctx.author.mention}( \(.*?\))?", "", ctx.message.content)
-
-        rows = new_content.split("\n")
-        idx = int(ctx.values[0])
+        selected = int(ctx.values[0])
         entry = f" {ctx.author.mention}"
+        edit_message = ctx.edit_origin
 
-        if idx != _LeagueOptions.LATER.value:
-            rows[idx] += entry
-            await ctx.edit_origin(content="\n".join(rows))
-            return
+        if selected == _LeagueOptions.LATER.value:
+            modal = ipy.Modal(
+                ipy.InputText(
+                    custom_id="time",
+                    label="When?",
+                    style=ipy.TextStyles.SHORT,
+                    placeholder="Leave blank to not specify",
+                    required=False,
+                ),
+                custom_id=f"{_LEAGUE_DROPDOWN}_later",
+                title="Confirm Time",
+            )
+            await ctx.send_modal(modal)
+            modal_ctx = await ctx.bot.wait_for_modal(modal, ctx.author.id)
+            edit_message = partial(modal_ctx.edit, ctx.message_id)
 
-        modal = ipy.Modal(
-            ipy.InputText(
-                custom_id=f"time",
-                label=f"When?",
-                style=ipy.TextStyles.SHORT,
-                placeholder="Leave blank to not specify",
-                required=False,
-            ),
-            custom_id=f"{_LEAGUE_DROPDOWN}_later",
-            title="Confirm Time",
-        )
-        await ctx.send_modal(modal)
-        modal_ctx = await ctx.bot.wait_for_modal(modal)
+            if time := modal_ctx.responses.get("time"):
+                entry += f" ({time})"
 
-        if time := modal_ctx.responses.get("time"):
-            entry += f" ({time})"
-
-        rows[idx] += entry
-        await modal_ctx.edit(ctx.message_id, content="\n".join(rows))
+        # removes either " @user" or " @user (time)" from the message
+        new_content = re.sub(rf" {ctx.author.mention}( \(.*?\))?", "", ctx.message.content)
+        rows = new_content.split("\n")
+        rows[selected] += entry
+        await edit_message(content="\n".join(rows))
 
 
     async def _get_discord_msg(self, link: DiscordMesageLink) -> ipy.Message:
