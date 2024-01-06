@@ -1,3 +1,4 @@
+from enum import Enum, auto
 import logging
 import re
 from typing import Annotated
@@ -18,7 +19,27 @@ __all__ = ["MessageExtension"]
 logger = logging.getLogger(__name__)
 
 
-LEAGUE_DROPDOWN = "league_ping_check"
+_LEAGUE_DROPDOWN = "league_ping_check"
+
+
+class _LeagueOptions(Enum):
+    YES = 0
+    ARAM = auto()
+    RANKED = auto()
+    PENTA = auto()
+    LATER = auto()
+    NO = auto()
+
+    @classmethod
+    def get_dropdown_options(cls):
+        return [
+            ipy.StringSelectOption(label="I'm down", value=cls.YES.value, emoji=":white_check_mark:"),
+            ipy.StringSelectOption(label="Aram only", value=cls.ARAM.value, emoji=":arrow_upper_right:"),
+            ipy.StringSelectOption(label="Ranked only", value=cls.RANKED.value, emoji=":ladder:"),
+            ipy.StringSelectOption(label="If penta", value=cls.PENTA.value, emoji=":five:"),
+            ipy.StringSelectOption(label="Later", value=cls.LATER.value, emoji=":clock830:"),
+            ipy.StringSelectOption(label="Nah", value=cls.NO.value, emoji=":x:"),
+        ]
 
 
 class MessageExtension(ipy.Extension):
@@ -162,13 +183,8 @@ class MessageExtension(ipy.Extension):
             return
 
         dropdown = ipy.StringSelectMenu(
-            ipy.StringSelectOption(label="I'm down", value=0, emoji=":white_check_mark:"),
-            ipy.StringSelectOption(label="Aram only", value=1, emoji=":arrow_upper_right:"),
-            ipy.StringSelectOption(label="Ranked only", value=2, emoji=":ladder:"),
-            ipy.StringSelectOption(label="If penta", value=3, emoji=":five:"),
-            ipy.StringSelectOption(label="Later", value=4, emoji=":clock830:"),
-            ipy.StringSelectOption(label="Nah", value=5, emoji=":x:"),
-            custom_id=LEAGUE_DROPDOWN,
+            *_LeagueOptions.get_dropdown_options(),
+            custom_id=_LEAGUE_DROPDOWN,
         )
 
         content = "\n".join(f"{o.emoji} {o.label}:" for o in dropdown.options)
@@ -176,14 +192,41 @@ class MessageExtension(ipy.Extension):
         await msg.reply(content=content, components=[dropdown])
 
 
-    @ipy.component_callback(LEAGUE_DROPDOWN)
+    @ipy.component_callback(_LEAGUE_DROPDOWN)
     async def league_ping_response(self, ctx: ipy.ComponentContext):
         """Callback of the response status after pinging for league"""
-        new_content = ctx.message.content.replace(f" {ctx.author.mention}", "")
+
+        # Removes either " @user" or " @user (time)" from the message
+        new_content = re.sub(rf" {ctx.author.mention}( \(.*?\))?", "", ctx.message.content)
+
         rows = new_content.split("\n")
         idx = int(ctx.values[0])
-        rows[idx] += f" {ctx.author.mention}"
-        await ctx.edit_origin(content="\n".join(rows))
+        entry = f" {ctx.author.mention}"
+
+        if idx != _LeagueOptions.LATER.value:
+            rows[idx] += entry
+            await ctx.edit_origin(content="\n".join(rows))
+            return
+
+        modal = ipy.Modal(
+            ipy.InputText(
+                custom_id=f"time",
+                label=f"When?",
+                style=ipy.TextStyles.SHORT,
+                placeholder="Leave blank to not specify",
+                required=False,
+            ),
+            custom_id=f"{_LEAGUE_DROPDOWN}_later",
+            title="Confirm Time",
+        )
+        await ctx.send_modal(modal)
+        modal_ctx = await ctx.bot.wait_for_modal(modal)
+
+        if time := modal_ctx.responses.get("time"):
+            entry += f" ({time})"
+
+        rows[idx] += entry
+        await modal_ctx.edit(ctx.message_id, content="\n".join(rows))
 
 
     async def _get_discord_msg(self, link: DiscordMesageLink) -> ipy.Message:
