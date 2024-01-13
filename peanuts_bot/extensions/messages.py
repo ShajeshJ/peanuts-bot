@@ -1,9 +1,10 @@
-from enum import Enum, auto
+from enum import IntEnum, auto
 from functools import partial
 import logging
 import re
-from typing import Annotated
+from typing import Annotated, Literal
 import interactions as ipy
+import interactions.client.utils.misc_utils as ipy_misc_utils
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
@@ -20,10 +21,12 @@ __all__ = ["MessageExtension"]
 logger = logging.getLogger(__name__)
 
 
-_LEAGUE_DROPDOWN = "league_ping_check"
+_LEAGUE_CHECK = "league_check"
+_LEAGUE_DROPDOWN = f"{_LEAGUE_CHECK}_dropdown"
+_LEAGUE_PING_BUTTON = f"{_LEAGUE_CHECK}_ping"
 
 
-class _LeagueOptions(Enum):
+class _LeagueOptions(IntEnum):
     YES = 0
     ARAM = auto()
     RANKED = auto()
@@ -188,13 +191,20 @@ class MessageExtension(ipy.Extension):
             custom_id=_LEAGUE_DROPDOWN,
         )
 
+        ping_button = ipy.Button(
+            style=ipy.ButtonStyle.PRIMARY,
+            label="Ping to gather",
+            emoji=":loudspeaker:",
+            custom_id=_LEAGUE_PING_BUTTON,
+        )
+
         content = "\n".join(f"{o.emoji} {o.label}:" for o in dropdown.options)
 
-        await msg.reply(content=content, components=[dropdown])
+        await msg.reply(content=content, components=[[dropdown], [ping_button]])
 
 
     @ipy.component_callback(_LEAGUE_DROPDOWN)
-    async def league_ping_response(self, ctx: ipy.ComponentContext):
+    async def league_check_dropdown(self, ctx: ipy.ComponentContext):
         """Callback of the response status after pinging for league"""
         selected = int(ctx.values[0])
         entry = f" {ctx.author.mention}"
@@ -224,6 +234,81 @@ class MessageExtension(ipy.Extension):
         rows = new_content.split("\n")
         rows[selected] += entry
         await edit_message(content="\n".join(rows))
+
+
+    @ipy.component_callback(_LEAGUE_PING_BUTTON)
+    async def league_check_ping(self, ctx: ipy.ComponentContext):
+        """Callback of the ping button after pinging for league"""
+        ranked_btn = ipy.Button(
+            style=ipy.ButtonStyle.SUCCESS,
+            label="Ranked",
+            emoji=":ladder:",
+            custom_id=f"{_LEAGUE_PING_BUTTON}_ranked",
+        )
+        aram_btn = ipy.Button(
+            style=ipy.ButtonStyle.PRIMARY,
+            label="Aram",
+            emoji=":arrow_upper_right:",
+            custom_id=f"{_LEAGUE_PING_BUTTON}_aram",
+        )
+        either_btn = ipy.Button(
+            style=ipy.ButtonStyle.SECONDARY,
+            label="Either",
+            emoji=":shrug:",
+            custom_id=f"{_LEAGUE_PING_BUTTON}_either",
+        )
+        await ctx.send(
+            content="What game mode do you want to gather for?",
+            components=[ranked_btn, aram_btn, either_btn],
+            ephemeral=True,
+        )
+
+
+    @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_ranked")
+    async def league_check_ping_ranked(self, ctx: ipy.ComponentContext):
+        """Callback of the ranked button after pinging for league"""
+        await self.league_ping_players("Ranked", ctx.message.get_referenced_message(), {_LeagueOptions.ARAM})
+        await ctx.edit_origin(content="Ranked pinged!", components=[])
+
+
+    @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_aram")
+    async def league_check_ping_aram(self, ctx: ipy.ComponentContext):
+        """Callback of the aram button after pinging for league"""
+        await self.league_ping_players("Aram", ctx.message.get_referenced_message(), {_LeagueOptions.RANKED})
+        await ctx.edit_origin(content="Aram pinged!", components=[])
+
+
+    @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_either")
+    async def league_check_ping_either(self, ctx: ipy.ComponentContext):
+        """Callback of the either button after pinging for league"""
+        await self.league_ping_players("League", ctx.message.get_referenced_message(), set())
+        await ctx.edit_origin(content="League pinged!", components=[])
+
+
+    async def league_ping_players(
+        self,
+        gamemode: Literal["Aram", "Ranked", "League"],
+        original_msg: ipy.Message,
+        ignore: set[_LeagueOptions],
+    ):
+        """Ping all players that responded to the league ping check"""
+        ignore.add(_LeagueOptions.NO)
+        rows_to_notify = [
+            r
+            for i, r in enumerate(original_msg.content.split("\n"))
+            if i not in ignore
+        ]
+
+        potential_mentions = " ".join(rows_to_notify).split(" ")
+        mentions: set[str] = set()
+        for m in potential_mentions:
+            if ipy_misc_utils.mention_reg.search(m):
+                mentions.add(m)
+
+        if not mentions:
+            return
+
+        await original_msg.reply(content=f"Gathering for {gamemode} {' '.join(mentions)}")
 
 
     async def _get_discord_msg(self, link: DiscordMesageLink) -> ipy.Message:
