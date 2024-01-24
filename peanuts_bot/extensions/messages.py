@@ -166,6 +166,7 @@ class MessageExtension(ipy.Extension):
             new_content = new_content.replace(l, "https://fxtwitter.com")
 
         await msg.reply(content=new_content)
+        await msg.suppress_embeds()
 
 
     @ipy.listen("on_message_create", delay_until_ready=True)
