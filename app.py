@@ -39,18 +39,18 @@ def configure_logging():
 
 
 def load_env() -> str:
-    """Loads environment variables, and returns the current environment"""
-
-    env = os.environ.setdefault("ENV", "local")
-    if env == "local" or input("Load .env file? (y/n): ").lower() == "y":
-        load_dotenv(".env")
-    return env
+    """Loads environment variables from file, if available"""
+    load_dotenv(".env", verbose=True)
+    return os.environ["ENV"]
 
 
 def main():
     """
     Entrypoint of the app
     """
+    # configure minimal logs at the top to capture preliminary configuration logs
+    logging.basicConfig(level=logging.INFO)
+
     load_env()
     configure_logging()
 
