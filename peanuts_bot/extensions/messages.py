@@ -302,6 +302,7 @@ class MessageExtension(ipy.Extension):
 
         potential_mentions = " ".join(rows_to_notify).split(" ")
         mentions: set[str] = set()
+        mentions.add(original_msg.get_referenced_message().author.mention)
         for m in potential_mentions:
             if ipy_misc_utils.mention_reg.search(m):
                 mentions.add(m)
