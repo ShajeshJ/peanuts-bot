@@ -24,7 +24,7 @@ run:
 
 pi_install:
 	-sudo systemctl stop peanutsbot
-	sudo CWD=$(pwd) envsubst < pi_bootstrap/peanutsbot.service > /etc/systemd/system/peanutsbot.service
+	sudo CWD=$$(pwd) envsubst < pi_bootstrap/peanutsbot.service > /etc/systemd/system/peanutsbot.service
 	sudo systemctl daemon-reload
 	sudo systemctl enable peanutsbot
 	sudo systemctl start peanutsbot
