@@ -1,0 +1,15 @@
+[Unit]
+Description=Peanuts server's Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/bin/bash ${CWD}/pi_bootstrap/start-bot.sh
+WorkingDirectory=${CWD}
+Restart=always
+RestartSec=120
+
+[Install]
+WantedBy=multi-user.target
