@@ -1,3 +1,3 @@
 source .venv/bin/activate
-poetry install --without dev --sync
+poetry install --only main --sync
 python app.py
