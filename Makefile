@@ -1,3 +1,5 @@
+include .env
+
 venv_dir := .venv
 venv_activate := . $(venv_dir)/bin/activate
 
@@ -35,3 +37,6 @@ pi_status:
 lines := 50
 pi_logs:
 	journalctl -u peanutsbot -f -n $(lines)
+
+remote_install:
+	ssh ${PI_HOST} "START_DIR=${PI_START_DIR} bash -s" < pi_bootstrap/remote-deploy.sh
