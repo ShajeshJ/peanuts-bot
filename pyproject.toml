@@ -22,10 +22,6 @@ black = "22.6.0"
 mypy = "1.4.0"
 types-python-dateutil = "2.8.19.13"
 
-
-[tool.poetry.group.ci.dependencies]
-aiohttp = "^3.8.4"
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
