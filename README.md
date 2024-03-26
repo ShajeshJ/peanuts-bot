@@ -30,6 +30,6 @@ These deploy steps will only work after the python app is runnable on the host d
 ### Setup
 1. Ensure your host device has SSH connections enabled.
 1. Then add the following environment variables to your `.env` file
-    - **`PI_HOST=`** : The SSH user+host to pass into the `ssh` command (should be of the format `{user}@{ip}`)
-    - **`PI_START_DIR=`** : The top level directory of the bot folder on the host device
+    - **`SSH_HOST=`** : The SSH user+host to pass into the `ssh` command (should be of the format `{user}@{ip}`)
+    - **`START_DIR=`** : The top level directory of the bot folder on the host device
 1. Finally, you can run `make remote_deploy` from your remote machine to trigger a deploy from the latest on `origin/main` to the host device.

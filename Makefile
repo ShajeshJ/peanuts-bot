@@ -39,4 +39,4 @@ pi_logs:
 	journalctl -u peanutsbot -f -n $(lines)
 
 remote_deploy:
-	ssh ${PI_HOST} "START_DIR=${PI_START_DIR} bash -s" < pi_bootstrap/remote-deploy.sh
+	ssh ${SSH_HOST} "START_DIR=${START_DIR} bash -s" < pi_bootstrap/remote-deploy.sh

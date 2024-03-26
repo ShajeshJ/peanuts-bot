@@ -1,0 +1,31 @@
+name: CI/CD
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  deploy:
+    name: Deploy Bot
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Repo Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            pi_bootstrap
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+      - name: Send Deploy Signal
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          START_DIR: ${{ vars.START_DIR }}
+        run: |
+          make remote_deploy
