@@ -38,5 +38,8 @@ lines := 50
 pi_logs:
 	journalctl -u peanutsbot -f -n $(lines)
 
+ssh_deploy_args := ${SSH_HOST} "START_DIR=${START_DIR} bash -s" < pi_bootstrap/remote-deploy.sh
 remote_deploy:
-	ssh ${SSH_HOST} "START_DIR=${START_DIR} bash -s" < pi_bootstrap/remote-deploy.sh
+# Prefer `tailscale ssh` if available
+	tailscale ssh $(ssh_deploy_args) \
+	|| ssh $(ssh_deploy_args)
