@@ -23,9 +23,9 @@ jobs:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
-      - name: Send Deploy Signal
+      - name: Send Deploy Commands
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           START_DIR: ${{ vars.START_DIR }}
         run: |
-          make remote_deploy
+          make remote_deploy ssh_cmd="tailscale ssh"
