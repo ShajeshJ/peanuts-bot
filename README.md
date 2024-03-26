@@ -23,13 +23,16 @@ To add new packages, use `poetry add <package>==<version>`
     - Assuming the dependencies in [pyproject.toml](pyproject.toml) are correct, just run `poetry lock --no-update` and commit the changes
 
 ## Deployments
-Currently, deployments can be triggered manually via SSH, and will run the bot as a _systemd_ service unit on the host machine.
+Deployments are automatically pushed to the host device via the [CI/CD Github Action Workflow](.github/workflows/deploy.yml).
+Once deployed, the bot service will run as a _systemd_ service unit on the host device.
 
 > [!IMPORTANT]
-> For the very initial deployment, you will need to manually pull down and [initialize the repo](#initializing-the-repo) on the host device.
-These deploy steps will only work after the python app is runnable on the host device.
+> Automated deployments are done through Tailscale SSH, and so the host device must be SSH enabled on your Tailnet.
 
-### Setup
+> [!NOTE]
+> Before the initial deployment, you will need to manually [initialize the repo](#initializing-the-repo) on the host device.
+
+### Setup for Manual Deploys
 1. Ensure your host device has SSH connections enabled.
 1. Then add the following environment variables to your `.env` file
     - **`SSH_HOST=`** : The SSH user+host to pass into the `ssh` command (should be of the format `{user}@{ip}`)
