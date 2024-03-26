@@ -28,4 +28,4 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           START_DIR: ${{ vars.START_DIR }}
         run: |
-          ssh ${SSH_HOST} "START_DIR=${START_DIR} bash -s" < pi_bootstrap/remote-deploy.sh
+          tailscale ssh ${SSH_HOST} "START_DIR=${START_DIR} bash -s" < pi_bootstrap/remote-deploy.sh
