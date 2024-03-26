@@ -1,3 +1,5 @@
+[![CI/CD](https://github.com/ShajeshJ/peanuts-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/ShajeshJ/peanuts-bot/actions/workflows/deploy.yml)
+
 # peanuts-bot
 discord bot for a private server, written in python ([version here](.tool-versions)) using [interactions-py](https://github.com/interactions-py/interactions.py)
 

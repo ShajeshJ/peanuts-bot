@@ -1,4 +1,4 @@
-include .env
+-include .env
 
 venv_dir := .venv
 venv_activate := . $(venv_dir)/bin/activate
