@@ -28,4 +28,4 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           START_DIR: ${{ vars.START_DIR }}
         run: |
-          make remote_deploy ssh_cmd="ssh"
+          make remote_deploy ssh_cmd="tailscale ssh"
