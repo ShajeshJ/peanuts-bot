@@ -46,7 +46,7 @@ def load_env() -> str:
 
 def main():
     """
-    Entrypoint of the app
+    Entrypoint of the app; keep key on-load imports in here
     """
     # configure minimal logs at the top to capture preliminary configuration logs
     logging.basicConfig(level=logging.INFO)
@@ -54,7 +54,11 @@ def main():
     load_env()
     configure_logging()
 
-    from peanuts_bot import bot
+    from peanuts_bot import bot, health_probe
+    from peanuts_bot.config import CONFIG
+
+    if CONFIG.HEALTH_PROBE:
+        health_probe.start_background_server()
 
     bot.start()
 

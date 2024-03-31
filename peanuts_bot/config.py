@@ -16,6 +16,8 @@ class EnvConfig(EnvLoader):
 
     ENV: str
     """The env the bot is running on"""
+    HEALTH_PROBE: bool = False
+    """When True, the bot will expose a ping HTTP endpoint for health checks"""
     BOT_TOKEN: str
     """Auth token for the Discord bot"""
     LOG_LEVEL: str = "INFO"
