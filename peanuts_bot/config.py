@@ -28,6 +28,8 @@ class EnvConfig(EnvLoader):
     """The ID of the admin user who manages the bot"""
     LEAGUE_ROLE_ID: int | None
     """The ID of the league mention role"""
+    MC_SERVER_IP: str | None
+    """The IP address of the Minecraft server"""
 
     ALPHAV_API_URL: str | None
     """The Base URL for the alphavantage.co API"""

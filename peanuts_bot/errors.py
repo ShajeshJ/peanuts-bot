@@ -4,6 +4,7 @@ import traceback
 import interactions as ipy
 
 from peanuts_bot.config import CONFIG
+from peanuts_bot.libraries.discord_bot import send_error_to_admin
 
 logger = logging.getLogger(__name__)
 SOMETHING_WRONG = "Sorry, something went wrong. Try again later."
@@ -31,22 +32,7 @@ async def on_error(event: ipy.events.Error):
 
     try:
         await event.ctx.send(SOMETHING_WRONG, ephemeral=True)
-
-        # Also notify admin user of the error
-        admin = await event.bot.fetch_user(CONFIG.ADMIN_USER_ID)
-        if admin:
-            tb = "".join(traceback.format_exception(event.error)).replace(
-                CONFIG.BOT_TOKEN, "[REDACTED]"
-            )
-            await admin.send(
-                embeds=ipy.Embed(
-                    title=f"Error: {type(event.error).__name__}",
-                    color=ipy.BrandColors.RED,
-                    description=f"```\n{tb[:ipy.EMBED_MAX_DESC_LENGTH - 8]}```",
-                ),
-                ephemeral=True,
-            )
-
+        await send_error_to_admin(event.error, event.bot)
     except Exception as e:
         raise e from event.error
 

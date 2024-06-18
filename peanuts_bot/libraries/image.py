@@ -1,3 +1,5 @@
+import base64
+import io
 import logging
 from enum import Enum
 import interactions as ipy
@@ -67,10 +69,31 @@ def get_image_url(obj: ipy.Attachment | ipy.Embed) -> str | None:
     return obj.url
 
 
+def decode_b64_image(image: str, *, filename: str | None = None) -> ipy.File:
+    """Converts a base64 string to a Discord file object
+
+    Can be used in conjunction with ipy.EmbedAttachment("attachment://{filename}")
+    to upload an in-memory image to Discord
+
+    Args:
+        image: The base64 encoded image
+        filename: The filename for the image. Defaults to None.
+
+    Returns:
+        A Discord file object containing the image as an io.BytesIO stream
+    """
+    # Remove the data URI prefix if present
+    if "data:image" in image:
+        image = image.split(",")[1]
+
+    return ipy.File(io.BytesIO(base64.b64decode(image)), filename)
+
+
 async def get_image_metadata(url: str) -> tuple[ImageType, int]:
     """Uses the headers of the given image url to get the content type and length of the image.
 
-    Raises `ValueError` if the given URL does not have appropriate content headers for an image."""
+    Raises `ValueError` if the given URL does not have appropriate content headers for an image.
+    """
 
     async with aiohttp.request("GET", url) as res:
         content_length = res.headers.get("Content-Length")

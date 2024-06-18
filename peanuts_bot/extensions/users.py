@@ -14,7 +14,7 @@ _MODIFY_MEMBER_SAFE_ERROR_CODES = [50013]
 class UserExtension(ipy.Extension):
     @staticmethod
     def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.EMERLAND
+        return ipy.FlatUIColors.GREENSEA
 
     @ipy.listen("on_member_update", delay_until_ready=True)
     async def add_username_to_nickname(self, event: ipy.events.MemberUpdate):

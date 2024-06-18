@@ -1,7 +1,10 @@
 from collections.abc import Iterator
 import re
+import traceback
 from typing import NamedTuple
 import interactions as ipy
+
+from peanuts_bot.config import CONFIG
 
 # Try to match discord message link https://discord.com/channels/<id>/<id>/<id>
 _DISCORD_MSG_URL_REGEX = (
@@ -66,4 +69,27 @@ async def disable_message_components(msg: ipy.Message | None) -> ipy.Message | N
 
     return await msg.edit(
         components=ipy.utils.misc_utils.disable_components(*msg.components)
+    )
+
+
+async def send_error_to_admin(error: Exception, bot: ipy.Client):
+    """Forwards the exception to the bot admin user
+
+    If the admin user is not found, this function does nothing
+    """
+
+    admin = await bot.fetch_user(CONFIG.ADMIN_USER_ID)
+    if not admin:
+        return
+
+    tb = "".join(traceback.format_exception(error)).replace(
+        CONFIG.BOT_TOKEN, "[REDACTED]"
+    )
+    await admin.send(
+        embeds=ipy.Embed(
+            title=f"Error: {type(error).__name__}",
+            color=ipy.BrandColors.RED,
+            description=f"```\n{tb[:ipy.EMBED_MAX_DESC_LENGTH - 8]}```",
+        ),
+        ephemeral=True,
     )
