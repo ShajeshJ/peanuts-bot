@@ -1,8 +1,9 @@
 import logging
 from typing import NamedTuple
+
 import interactions as ipy
 
-from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG
+from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG, MC_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ if isinstance(CONFIG, ALPHAV_CONNECTED):
 else:
     logger.warning("stocks api is not connected, skipping stocks commands")
 
-if CONFIG.MC_SERVER_IP and CONFIG.MC_TS_HOST:
+if isinstance(CONFIG, MC_CONFIG):
     ALL_EXTENSIONS.append(ExtInfo("Minecraft", "peanuts_bot.extensions.minecraft"))
 else:
     logger.warning("minecraft server env not set, skipping minecraft commands")

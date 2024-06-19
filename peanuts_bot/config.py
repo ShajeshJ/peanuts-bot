@@ -59,4 +59,10 @@ class ALPHAV_CONNECTED(Protocol):
     ALPHAV_KEY: str
 
 
+@runtime_checkable
+class MC_CONFIG(Protocol):
+    MC_SERVER_IP: str
+    MC_TS_HOST: str
+
+
 CONFIG = EnvConfig()

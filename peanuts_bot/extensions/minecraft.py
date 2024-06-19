@@ -8,9 +8,9 @@ import aiohttp
 import async_lru
 import interactions as ipy
 import mcstatus
-import mcstatus.status_response
+from mcstatus.status_response import JavaStatusResponse
 
-from peanuts_bot.config import CONFIG
+from peanuts_bot.config import CONFIG, MC_CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.discord_bot import send_error_to_admin
 from peanuts_bot.libraries.image import decode_b64_image
@@ -18,6 +18,12 @@ from peanuts_bot.libraries.image import decode_b64_image
 __all__ = ["MinecraftExtension"]
 
 logger = logging.getLogger(__name__)
+
+
+if not isinstance(CONFIG, MC_CONFIG):
+    raise RuntimeError(
+        "Minecraft extension requires a connection to the Minecraft server"
+    )
 
 
 class _SENTINEL(enum.Enum):
@@ -40,7 +46,7 @@ class MinecraftExtension(ipy.Extension):
     async def status(self, ctx: ipy.SlashContext):
         """Get the info and status of the Peanuts Minecraft server"""
 
-        status = _UNKNOWN
+        status: Literal[_SENTINEL._UNKNOWN] | JavaStatusResponse | None = _UNKNOWN
         try:
             server = await mcstatus.JavaServer.async_lookup(CONFIG.MC_SERVER_IP)
             status = await server.async_status()
