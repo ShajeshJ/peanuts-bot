@@ -30,10 +30,10 @@ if isinstance(CONFIG, ALPHAV_CONNECTED):
 else:
     logger.warning("stocks api is not connected, skipping stocks commands")
 
-if CONFIG.MC_SERVER_IP:
+if CONFIG.MC_SERVER_IP and CONFIG.MC_TS_HOST:
     ALL_EXTENSIONS.append(ExtInfo("Minecraft", "peanuts_bot.extensions.minecraft"))
 else:
-    logger.warning("minecraft server ip not set, skipping minecraft commands")
+    logger.warning("minecraft server env not set, skipping minecraft commands")
 
 if CONFIG.IS_LOCAL:
     logger.debug("loading local commands")

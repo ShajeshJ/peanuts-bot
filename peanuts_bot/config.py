@@ -30,6 +30,8 @@ class EnvConfig(EnvLoader):
     """The ID of the league mention role"""
     MC_SERVER_IP: str | None
     """The IP address of the Minecraft server"""
+    MC_TS_HOST: str | None
+    """The Tailscale SSH host address for the Minecraft server"""
 
     ALPHAV_API_URL: str | None
     """The Base URL for the alphavantage.co API"""
