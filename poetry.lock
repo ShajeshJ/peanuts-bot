@@ -1478,6 +1478,17 @@ files = [
 ]
 
 [[package]]
+name = "typedenv-py"
+version = "1.0.1"
+description = "Load environment variables with class type hints"
+optional = false
+python-versions = "<4.0,>=3.10"
+files = [
+    {file = "typedenv_py-1.0.1-py3-none-any.whl", hash = "sha256:2d84d54f20337183ecd758b001e8c7d57db0d1299296349ce9392475d6650faa"},
+    {file = "typedenv_py-1.0.1.tar.gz", hash = "sha256:01afa3f92e0d901d53051edea27f6f3270f0965c72d7d5352283ac4718cedcc0"},
+]
+
+[[package]]
 name = "types-python-dateutil"
 version = "2.8.19.13"
 description = "Typing stubs for python-dateutil"
@@ -1827,4 +1838,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "3.10.5"
-content-hash = "c0cd3fd17cda4cc49013b85430e9ce839071dc4b353571eda24761a73012c389"
+content-hash = "5225dadd8eef21615ce7953afc14974d3a7c0853f75eef2607b6af01b51ba9ad"

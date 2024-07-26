@@ -26,14 +26,16 @@ ALL_EXTENSIONS: list[ExtInfo] = [
     ExtInfo("Message", "peanuts_bot.extensions.messages"),
 ]
 
-if isinstance(CONFIG, ALPHAV_CONNECTED):
+try:
+    ALPHAV_CONNECTED()
     ALL_EXTENSIONS.append(ExtInfo("Stock", "peanuts_bot.extensions.stocks"))
-else:
+except ValueError:
     logger.warning("stocks api is not connected, skipping stocks commands")
 
-if isinstance(CONFIG, MC_CONFIG):
+try:
+    MC_CONFIG()
     ALL_EXTENSIONS.append(ExtInfo("Minecraft", "peanuts_bot.extensions.minecraft"))
-else:
+except ValueError:
     logger.warning("minecraft server env not set, skipping minecraft commands")
 
 if CONFIG.IS_LOCAL:

@@ -1,19 +1,9 @@
-from typing import Protocol, runtime_checkable
-from peanuts_bot.libraries.env import EnvLoader
+import typedenv
 
 __all__ = ["CONFIG"]
 
 
-class EnvConfig(EnvLoader):
-    """
-    INSTRUCTIONS:
-
-    To add an environment variable to the config, name the config constant
-    the same as the env variable, and include type annotations
-
-    To add properties computed off of env variables, define an @property function
-    """
-
+class EnvConfig(typedenv.EnvLoader, singleton=True):
     ENV: str
     """The env the bot is running on"""
     HEALTH_PROBE: bool = False
@@ -53,14 +43,12 @@ class EnvConfig(EnvLoader):
         return self.LOG_LEVEL == "DEBUG"
 
 
-@runtime_checkable
-class ALPHAV_CONNECTED(Protocol):
+class ALPHAV_CONNECTED(EnvConfig, singleton=True):
     ALPHAV_API_URL: str
     ALPHAV_KEY: str
 
 
-@runtime_checkable
-class MC_CONFIG(Protocol):
+class MC_CONFIG(EnvConfig, singleton=True):
     MC_SERVER_IP: str
     MC_TS_HOST: str
 

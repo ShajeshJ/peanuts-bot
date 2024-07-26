@@ -10,7 +10,7 @@ import interactions as ipy
 import mcstatus
 from mcstatus.status_response import JavaStatusResponse
 
-from peanuts_bot.config import CONFIG, MC_CONFIG
+from peanuts_bot.config import MC_CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.discord_bot import send_error_to_admin
 from peanuts_bot.libraries.image import decode_b64_image
@@ -19,11 +19,7 @@ __all__ = ["MinecraftExtension"]
 
 logger = logging.getLogger(__name__)
 
-
-if not isinstance(CONFIG, MC_CONFIG):
-    raise RuntimeError(
-        "Minecraft extension requires a connection to the Minecraft server"
-    )
+CONFIG = MC_CONFIG()
 
 
 class _SENTINEL(enum.Enum):
