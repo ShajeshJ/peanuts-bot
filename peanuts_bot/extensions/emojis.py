@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import dataclass
+import io
 import logging
 import traceback
 import aiohttp
@@ -9,7 +10,10 @@ import interactions as ipy
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError, SOMETHING_WRONG
-from peanuts_bot.libraries.discord_bot import disable_message_components
+from peanuts_bot.libraries.discord_bot import (
+    disable_message_components,
+    is_messagable,
+)
 from peanuts_bot.libraries.image import (
     MAX_EMOJI_FILE_SIZE,
     ImageType,
@@ -61,11 +65,20 @@ class EmojiRequest:
         :param msg: The message to parse
         :return: The EmojiRequest parsed from the message
         """
+
+        def _re_search(
+            pattern: str | re.Pattern[str], string: str, flags: int | re.RegexFlag = 0
+        ) -> re.Match[str]:
+            match = re.search(pattern, string, flags)
+            if not match:
+                raise ValueError("unable to parse message as an emoji request")
+            return match
+
         try:
-            shortcut = re.search(r"> shortcut: (.*)", msg).group(1)
-            url = re.search(r"> url: (.*)", msg).group(1)
-            requester_id = int(re.search(r"> requester_id: (.*)", msg).group(1))
-            channel_id = int(re.search(r"> channel_id: (.*)", msg).group(1))
+            shortcut = _re_search(r"> shortcut: (.*)", msg).group(1)
+            url = _re_search(r"> url: (.*)", msg).group(1)
+            requester_id = int(_re_search(r"> requester_id: (.*)", msg).group(1))
+            channel_id = int(_re_search(r"> channel_id: (.*)", msg).group(1))
         except (AttributeError, TypeError, ValueError) as e:
             raise ValueError("unable to parse message as an emoji request") from e
 
@@ -133,11 +146,13 @@ class EmojiExtension(ipy.Extension):
         label_prefix = "shortcut for "
 
         def _get_file_name(img: ipy.Attachment | ipy.Embed) -> str:
-            filename = (
-                img.filename
-                if isinstance(img, ipy.Attachment)
-                else img.url.split("/")[-1]
-            )
+            if isinstance(img, ipy.Attachment):
+                filename = img.filename
+            elif img.url:
+                filename = img.url.split("/")[-1]
+            else:
+                filename = "untitled"
+
             return (
                 filename
                 if len(filename) + len(label_prefix) < 45
@@ -230,6 +245,9 @@ class EmojiExtension(ipy.Extension):
     @ipy.component_callback(APPROVE_EMOJI_BTN)
     async def approve_emoji(self, ctx: ipy.ComponentContext):
         """Callback of an admin approving an emoji"""
+        if not ctx.message:
+            raise BotUsageError("unable to fetch message")
+
         try:
             emoji_request = EmojiRequest.from_approval_msg(ctx.message.content)
         except ValueError as e:
@@ -242,10 +260,13 @@ class EmojiExtension(ipy.Extension):
         )
         guild = await self.bot.fetch_guild(CONFIG.GUILD_ID)
 
+        if not guild or not requester or not is_messagable(channel):
+            raise BotUsageError("unable to fulfill emoji request")
+
         async with aiohttp.request("GET", emoji_request.url) as res:
             emoji = await guild.create_custom_emoji(
-                emoji_request.shortcut,
-                await res.content.read(),
+                emoji_request.shortcut or "BADNAME",
+                io.BytesIO(await res.content.read()),
                 reason=f"Created by {requester.username} via bot comands",
             )
             await channel.send(f"{requester.mention} emoji {emoji} was created")
@@ -279,6 +300,9 @@ class EmojiExtension(ipy.Extension):
     @ipy.modal_callback(REJECT_EMOJI_MODAL)
     async def reject_emoji_modal(self, ctx: ipy.ModalContext, emoji_reject_reason: str):
         """Callback after admin filled out error reason for an emoji rejection"""
+        if not ctx.message:
+            raise BotUsageError("unable to fetch message")
+
         try:
             emoji_request = EmojiRequest.from_approval_msg(ctx.message.content)
         except ValueError as e:
@@ -289,6 +313,9 @@ class EmojiExtension(ipy.Extension):
         requester = await self.bot.fetch_member(
             emoji_request.requester_id, CONFIG.GUILD_ID
         )
+
+        if not requester or not is_messagable(channel):
+            raise BotUsageError("unable to reject emoji request")
 
         await channel.send(
             f'{requester.mention} your emoji "{emoji_request.shortcut}" was rejected with reason:\n> {emoji_reject_reason}'
@@ -338,6 +365,8 @@ async def _request_emoji(req: EmojiRequest, ctx: ipy.SlashContext | ipy.ModalCon
     )
 
     admin_user = await ctx.bot.fetch_user(CONFIG.ADMIN_USER_ID)
+    if not admin_user:
+        raise BotUsageError("unable to find bot admin user")
     await admin_user.send(req.to_approval_msg(), components=[yes_btn, no_btn])
 
 
@@ -347,7 +376,7 @@ def is_valid_emoji_type(_type: ImageType) -> bool:
 
 def is_valid_shortcut(shortcut: str) -> bool:
     """Indicates if the given emoji shortcut is valid"""
-    return len(shortcut) >= 2 and re.fullmatch(r"^[a-zA-Z0-9_]+$", shortcut)
+    return bool(len(shortcut) >= 2 and re.fullmatch(r"^[a-zA-Z0-9_]+$", shortcut))
 
 
 def get_images_from_msg(msg: ipy.Message) -> list[ipy.Attachment | ipy.Embed]:

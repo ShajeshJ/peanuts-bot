@@ -35,6 +35,9 @@ class RoleExtension(ipy.Extension):
     ):
         """Create a new mention role that others can join"""
 
+        if not ctx.guild:
+            raise BotUsageError("This command can only be used in a server")
+
         if any(r.name == name for r in ctx.guild.roles):
             raise BotUsageError(f"The role {name} already exists")
 
@@ -69,6 +72,9 @@ class RoleExtension(ipy.Extension):
     @role.subcommand()
     async def join(self, ctx: ipy.SlashContext):
         """Add yourself to a mention role"""
+        if not ctx.guild or not isinstance(ctx.author, ipy.Member):
+            raise BotUsageError("This command can only be used in a server")
+
         options = [
             ipy.StringSelectOption(label=role.name, value=get_role_option_value(role))
             for role in ctx.guild.roles
@@ -89,12 +95,17 @@ class RoleExtension(ipy.Extension):
     async def join_selection(self, ctx: ipy.ComponentContext):
         """Callback after a selection is made on a join dropdown"""
 
-        invalid_roles = []
-        joined_roles = []
+        if not isinstance(ctx.author, ipy.Member):
+            raise BotUsageError("This command can only be used in a server")
+
+        invalid_roles: list[str] = []
+        joined_roles: list[str] = []
         roles_to_join = get_valid_roles(
             selected_roles=(split_role_option_value(v) for v in ctx.values),
             ctx=ctx,
-            should_skip=lambda ctx, r: ctx.author.has_role(r),
+            should_skip=lambda ctx, r: (
+                isinstance(ctx.author, ipy.Member) and ctx.author.has_role(r)
+            ),
             invalid_role_callback=invalid_roles.append,
         )
 
@@ -118,6 +129,9 @@ class RoleExtension(ipy.Extension):
     @role.subcommand()
     async def leave(self, ctx: ipy.SlashContext):
         """Remove yourself from a mention role"""
+        if not ctx.guild or not isinstance(ctx.author, ipy.Member):
+            raise BotUsageError("This command can only be used in a server")
+
         options = [
             ipy.StringSelectOption(label=role.name, value=get_role_option_value(role))
             for role in ctx.guild.roles
@@ -138,12 +152,18 @@ class RoleExtension(ipy.Extension):
     async def leave_selection(self, ctx: ipy.ComponentContext):
         """Callback after a selection is made on a leave dropdown"""
 
-        invalid_roles = []
-        left_roles = []
+        if not isinstance(ctx.author, ipy.Member):
+            raise BotUsageError("This command can only be used in a server")
+
+        invalid_roles: list[str] = []
+        left_roles: list[str] = []
         roles_to_leave = get_valid_roles(
             selected_roles=(split_role_option_value(v) for v in ctx.values),
             ctx=ctx,
-            should_skip=lambda ctx, r: not ctx.author.has_role(r),
+            should_skip=(
+                lambda ctx, r: isinstance(ctx.author, ipy.Member)
+                and not ctx.author.has_role(r)
+            ),
             invalid_role_callback=invalid_roles.append,
         )
 
@@ -214,7 +234,7 @@ def get_role_option_value(role: ipy.Role) -> str:
 
 def split_role_option_value(value: str) -> RoleOptionTuple:
     r_id, r_name = value.split("|")
-    return RoleOptionTuple(ipy.Snowflake(r_id), r_name)
+    return RoleOptionTuple(ipy.Snowflake(int(r_id)), r_name)
 
 
 def is_joinable(r: ipy.Role) -> bool:

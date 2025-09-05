@@ -1,3 +1,4 @@
+import functools
 import logging
 from typing import Annotated
 import interactions as ipy
@@ -39,6 +40,9 @@ class ChannelExtension(ipy.Extension):
     ):
         """Create a new text channel"""
 
+        if not ctx.guild:
+            raise BotUsageError("This command can only be used in a server")
+
         existing_channel = next(
             (
                 c
@@ -50,13 +54,16 @@ class ChannelExtension(ipy.Extension):
         if existing_channel:
             raise BotUsageError(f"{existing_channel.mention} already exists")
 
-        logger.info(category)
-
-        channel = await ctx.guild.create_channel(
+        create_channel = functools.partial(
+            ctx.guild.create_channel,
             channel_type=ipy.ChannelType.GUILD_TEXT,
             name=name,
-            category=category,
             reason=f"Created by {ctx.author.display_name} via bot commands",
         )
+
+        if category:
+            channel = await create_channel(category=category)
+        else:
+            channel = await create_channel()
 
         await ctx.send(f"Created new channel {channel.mention}")

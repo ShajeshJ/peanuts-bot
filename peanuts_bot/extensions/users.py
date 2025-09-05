@@ -39,7 +39,9 @@ class UserExtension(ipy.Extension):
             logger.debug(f"new nick '{new_nick}' is too long. resetting...")
 
             try:
-                await member.edit_nickname(None, reason="nickname too long")
+                # docstring says to omit the first arg to reset, but based on testing,
+                # this only resets the nickname if None is explicitly passed
+                await member.edit_nickname(None, reason="nickname too long")  # type: ignore[arg-type]
             except ipy.errors.HTTPException as e:
                 if e.code not in _MODIFY_MEMBER_SAFE_ERROR_CODES:
                     raise

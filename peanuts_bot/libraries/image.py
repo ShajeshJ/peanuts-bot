@@ -51,11 +51,11 @@ class ImageType(str, Enum):
 def is_image(obj: ipy.Attachment | ipy.Embed) -> bool:
     """Indicates if a given attachment / embed object is an image"""
 
-    if any(t.extension for t in ImageType if obj.url.endswith(t.extension)):
+    if any(t.extension for t in ImageType if obj.url and obj.url.endswith(t.extension)):
         return True
 
     if isinstance(obj, ipy.Attachment):
-        return obj.content_type and obj.content_type.startswith("image/")
+        return bool(obj.content_type and obj.content_type.startswith("image/"))
 
     return obj.type == ipy.models.discord.enums.EmbedType.IMAGE
 
@@ -100,6 +100,9 @@ async def get_image_metadata(url: str) -> tuple[ImageType, int]:
         mime = ipy.utils.get_file_mimetype(await res.read())
 
         logger.debug(f"Actual {mime=}, {content_length=}")
+
+        if not content_length:
+            raise ValueError("valid image metadata for the given URL")
 
         try:
             return ImageType(mime), int(content_length)

@@ -2,6 +2,7 @@ from collections.abc import Iterator
 import re
 import traceback
 from typing import NamedTuple
+import typing
 import interactions as ipy
 
 from peanuts_bot.config import CONFIG
@@ -93,3 +94,15 @@ async def send_error_to_admin(error: Exception, bot: ipy.Client):
         ),
         ephemeral=True,
     )
+
+
+def is_messagable(
+    channel: ipy.BaseChannel | None,
+) -> typing.TypeGuard[ipy.TYPE_MESSAGEABLE_CHANNEL]:
+    """
+    Type guard to check if a channel is messageable
+
+    :param channel: The channel to check
+    :return: True if the channel is messageable, False otherwise
+    """
+    return isinstance(channel, typing.get_args(ipy.TYPE_MESSAGEABLE_CHANNEL))

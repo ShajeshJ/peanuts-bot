@@ -1,6 +1,8 @@
+from collections.abc import MutableMapping, MutableSequence
 from dataclasses import dataclass
 from datetime import datetime
 import logging
+import typing
 
 import aiohttp
 from peanuts_bot.config import ALPHAV_CONNECTED
@@ -58,7 +60,9 @@ class AlphaV(IStockProvider[_StockHistoryAV, _TickerResultAV]):
 
         matches = resp.get("bestMatches")
         if not isinstance(matches, list):
-            raise StocksAPIError(f"could not parse symbol search api response {resp}")
+            raise StocksAPIError(
+                f"could not parse symbol search api response {_redact_errors(resp)}"
+            )
 
         search_results = [_parse_symbol_result(d) for d in matches]
         search_results = [r for r in search_results if r.type.lower() == "equity"]
@@ -66,7 +70,7 @@ class AlphaV(IStockProvider[_StockHistoryAV, _TickerResultAV]):
 
     @staticmethod
     async def get_stock(ticker: str, filter: TimeFilter) -> _StockHistoryAV:
-        resp = await _call_stocks_api("TIME_SERIES_DAILY_ADJUSTED", symbol=ticker)
+        resp = await _call_stocks_api("TIME_SERIES_DAILY", symbol=ticker)
         stock = _parse_stock_api_result(resp)
 
         max_date = datetime.now()
@@ -91,7 +95,7 @@ def _parse_symbol_result(d: dict[str, str]) -> _TickerResultAV:
         raise StocksAPIError(f"could not parse symbol search api response") from e
 
 
-def _parse_stock_api_result(d: dict[str, dict]) -> _StockHistoryAV:
+def _parse_stock_api_result(d: dict[str, typing.Any]) -> _StockHistoryAV:
     """parses the stock history from the given api response"""
     try:
         meta = d["Meta Data"]
@@ -112,7 +116,27 @@ def _parse_stock_api_result(d: dict[str, dict]) -> _StockHistoryAV:
             symbol=symbol, refreshed_at=last_refresh, daily_prices=datapoints
         )
     except Exception as e:
-        raise StocksAPIError(f"could not parse daily stock api response") from e
+        raise StocksAPIError(
+            f"could not parse daily stock api response {_redact_errors(d)}"
+        ) from e
+
+
+def _redact_errors(d: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    """
+    Redacts sensitive information from the API response
+    """
+    for k in d:
+        if isinstance(d[k], MutableMapping):
+            d[k] = _redact_errors(d[k])
+        elif isinstance(d[k], MutableSequence):
+            d[k] = _redact_errors(d[k])
+        elif isinstance(d[k], str):
+            logger.info(f"replacing {k}...")
+            d[k] = str(d[k]).replace(CONFIG.ALPHAV_KEY, "[REDACTED]")
+        else:
+            logger.info(f"did nothing for {k}")
+
+    return d
 
 
 async def _call_stocks_api(f: str, /, **kwargs) -> dict:

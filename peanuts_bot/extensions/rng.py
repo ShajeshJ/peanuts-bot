@@ -84,7 +84,7 @@ class RngExtension(ipy.Extension):
 
         content = append_new_result(
             msg=f"Randomize ({min} to {max}):\n```",
-            result=random.randint(min, max),
+            result=str(random.randint(min, max)),
             is_first=True,
         )
         await ctx.send(content, components=[get_random_button(min, max)])
@@ -96,7 +96,7 @@ class RngExtension(ipy.Extension):
             return
 
         min, max = parse_random_button_id(ctx.custom_id)
-        content = append_new_result(ctx.message.content, random.randint(min, max))
+        content = append_new_result(ctx.message.content, str(random.randint(min, max)))
         await ctx.edit_origin(content=content, components=ctx.message.components)
 
     @ipy.slash_command(scopes=[CONFIG.GUILD_ID])

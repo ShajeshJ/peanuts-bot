@@ -149,11 +149,11 @@ def _gen_stock_graph(stock: IStock[IDaily]) -> ipy.File | None:
     matplotlib.use("agg")
 
     plt.figure(figsize=(15, 10), dpi=40)
-    x = [dp.date for dp in stock.daily_prices]
+    x = [dp.date.strftime("%y/%m/%d") for dp in stock.daily_prices]
     y = [dp.close for dp in stock.daily_prices]
     plt.plot(x, y, color="tab:red")
 
-    plt.xticks(fontsize=24)
+    plt.xticks(fontsize=24, rotation=45)
     plt.yticks(fontsize=24)
 
     plt.grid(axis="both", alpha=1)

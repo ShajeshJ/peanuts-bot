@@ -1,4 +1,4 @@
-from enum import IntEnum, auto
+from enum import Enum, auto
 from functools import partial
 import logging
 import re
@@ -12,6 +12,7 @@ from peanuts_bot.libraries.discord_bot import (
     BAD_TWITTER_LINKS,
     DiscordMesageLink,
     get_discord_msg_links,
+    is_messagable,
     parse_discord_msg_link,
 )
 from peanuts_bot.libraries.image import get_image_url
@@ -26,7 +27,7 @@ _LEAGUE_DROPDOWN = f"{_LEAGUE_CHECK}_dropdown"
 _LEAGUE_PING_BUTTON = f"{_LEAGUE_CHECK}_ping"
 
 
-class _LeagueOptions(IntEnum):
+class _LeagueOptions(int, Enum):
     YES = 0
     ARAM = auto()
     RANKED = auto()
@@ -37,12 +38,24 @@ class _LeagueOptions(IntEnum):
     @classmethod
     def get_dropdown_options(cls):
         return [
-            ipy.StringSelectOption(label="I'm down", value=cls.YES.value, emoji=":white_check_mark:"),
-            ipy.StringSelectOption(label="Aram only", value=cls.ARAM.value, emoji=":arrow_upper_right:"),
-            ipy.StringSelectOption(label="Ranked only", value=cls.RANKED.value, emoji=":ladder:"),
-            ipy.StringSelectOption(label="If penta", value=cls.PENTA.value, emoji=":five:"),
-            ipy.StringSelectOption(label="Later", value=cls.LATER.value, emoji=":clock830:"),
-            ipy.StringSelectOption(label="Nah", value=cls.NO.value, emoji=":x:"),
+            ipy.StringSelectOption(
+                label="I'm down", value=str(cls.YES.value), emoji=":white_check_mark:"
+            ),
+            ipy.StringSelectOption(
+                label="Aram only",
+                value=str(cls.ARAM.value),
+                emoji=":arrow_upper_right:",
+            ),
+            ipy.StringSelectOption(
+                label="Ranked only", value=str(cls.RANKED.value), emoji=":ladder:"
+            ),
+            ipy.StringSelectOption(
+                label="If penta", value=str(cls.PENTA.value), emoji=":five:"
+            ),
+            ipy.StringSelectOption(
+                label="Later", value=str(cls.LATER.value), emoji=":clock830:"
+            ),
+            ipy.StringSelectOption(label="Nah", value=str(cls.NO.value), emoji=":x:"),
         ]
 
 
@@ -161,13 +174,14 @@ class MessageExtension(ipy.Extension):
         if not any(bad_link in msg.content for bad_link in BAD_TWITTER_LINKS):
             return
 
-        new_content = f"Message with fixed Twitter links:\n{msg.content}".replace("\n", "\n> ")
+        new_content = f"Message with fixed Twitter links:\n{msg.content}".replace(
+            "\n", "\n> "
+        )
         for l in BAD_TWITTER_LINKS:
             new_content = new_content.replace(l, "https://fxtwitter.com")
 
         await msg.reply(content=new_content)
         await msg.suppress_embeds()
-
 
     @ipy.listen("on_message_create", delay_until_ready=True)
     async def send_league_ping_check(self, event: ipy.events.MessageCreate):
@@ -201,8 +215,7 @@ class MessageExtension(ipy.Extension):
 
         content = "\n".join(f"{o.emoji} {o.label}:" for o in dropdown.options)
 
-        await msg.reply(content=content, components=[[dropdown], [ping_button]])
-
+        await msg.reply(content=content, components=[[dropdown], [ping_button]])  # type: ignore[arg-type]
 
     @ipy.component_callback(_LEAGUE_DROPDOWN)
     async def league_check_dropdown(self, ctx: ipy.ComponentContext):
@@ -210,6 +223,9 @@ class MessageExtension(ipy.Extension):
         selected = int(ctx.values[0])
         entry = f" {ctx.author.mention}"
         edit_message = ctx.edit_origin
+
+        if not ctx.message:
+            raise BotUsageError("Could not find original message")
 
         if selected == _LeagueOptions.LATER.value:
             modal = ipy.Modal(
@@ -224,18 +240,33 @@ class MessageExtension(ipy.Extension):
                 title="Confirm Time",
             )
             await ctx.send_modal(modal)
+
             modal_ctx = await ctx.bot.wait_for_modal(modal, ctx.author.id)
+
+            if modal_ctx.expired:
+                logger.info("modal cancelled or expired somehow")
+                return  # occurs sometimes if modal is cancelled in weird condition
+
             edit_message = partial(modal_ctx.edit, ctx.message_id)
 
             if time := modal_ctx.responses.get("time"):
                 entry += f" ({time})"
 
         # removes either " @user" or " @user (time)" from the message
-        new_content = re.sub(rf" {ctx.author.mention}( \(.*?\))?", "", ctx.message.content)
+        new_content = re.sub(
+            rf" {ctx.author.mention}( \(.*?\))?", "", ctx.message.content
+        )
         rows = new_content.split("\n")
         rows[selected] += entry
-        await edit_message(content="\n".join(rows))
 
+        try:
+            await edit_message(content="\n".join(rows))
+        except ipy.errors.HTTPException as e:
+            if e.status == 400 or e.status == 404:
+                logger.info(f"{str(e)}.. Skipping...")
+                return
+
+            raise
 
     @ipy.component_callback(_LEAGUE_PING_BUTTON)
     async def league_check_ping(self, ctx: ipy.ComponentContext):
@@ -264,45 +295,57 @@ class MessageExtension(ipy.Extension):
             ephemeral=True,
         )
 
-
     @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_ranked")
     async def league_check_ping_ranked(self, ctx: ipy.ComponentContext):
         """Callback of the ranked button after pinging for league"""
-        await self.league_ping_players("Ranked", ctx.message.get_referenced_message(), {_LeagueOptions.ARAM})
-        await ctx.edit_origin(content="Ranked pinged!", components=[])
+        message = ctx.message.get_referenced_message() if ctx.message else None
+        if not message:
+            raise BotUsageError("Could not find original message")
 
+        await self.league_ping_players("Ranked", message, {_LeagueOptions.ARAM})
+        await ctx.edit_origin(content="Ranked pinged!", components=[])
 
     @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_aram")
     async def league_check_ping_aram(self, ctx: ipy.ComponentContext):
         """Callback of the aram button after pinging for league"""
-        await self.league_ping_players("Aram", ctx.message.get_referenced_message(), {_LeagueOptions.RANKED})
-        await ctx.edit_origin(content="Aram pinged!", components=[])
+        message = ctx.message.get_referenced_message() if ctx.message else None
+        if not message:
+            raise BotUsageError("Could not find original message")
 
+        await self.league_ping_players("Aram", message, {_LeagueOptions.RANKED})
+        await ctx.edit_origin(content="Aram pinged!", components=[])
 
     @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_either")
     async def league_check_ping_either(self, ctx: ipy.ComponentContext):
         """Callback of the either button after pinging for league"""
-        await self.league_ping_players("League", ctx.message.get_referenced_message(), set())
-        await ctx.edit_origin(content="League pinged!", components=[])
+        message = ctx.message.get_referenced_message() if ctx.message else None
+        if not message:
+            raise BotUsageError("Could not find original message")
 
+        await self.league_ping_players("League", message, set())
+        await ctx.edit_origin(content="League pinged!", components=[])
 
     async def league_ping_players(
         self,
         gamemode: Literal["Aram", "Ranked", "League"],
-        original_msg: ipy.Message,
+        bot_selection_msg: ipy.Message,
         ignore: set[_LeagueOptions],
     ):
         """Ping all players that responded to the league ping check"""
         ignore.add(_LeagueOptions.NO)
         rows_to_notify = [
             r
-            for i, r in enumerate(original_msg.content.split("\n"))
+            for i, r in enumerate(bot_selection_msg.content.split("\n"))
             if i not in ignore
         ]
 
         potential_mentions = " ".join(rows_to_notify).split(" ")
-        orig_author = (await original_msg.fetch_referenced_message()).author.mention
-        mentions: set[str] = {orig_author}
+        mentions: set[str] = set()
+
+        cmd_msg = bot_selection_msg.get_referenced_message()
+        if cmd_msg:
+            mentions.add(cmd_msg.author.mention)
+
         for m in potential_mentions:
             if ipy_misc_utils.mention_reg.search(m):
                 mentions.add(m)
@@ -310,8 +353,9 @@ class MessageExtension(ipy.Extension):
         if not mentions:
             return
 
-        await original_msg.reply(content=f"Gathering for {gamemode} {' '.join(mentions)}")
-
+        await bot_selection_msg.reply(
+            content=f"Gathering for {gamemode} {' '.join(mentions)}"
+        )
 
     async def _get_discord_msg(self, link: DiscordMesageLink) -> ipy.Message:
         """
@@ -327,7 +371,7 @@ class MessageExtension(ipy.Extension):
             raise BotUsageError("Cannot quote messages from other servers")
 
         ch = await self.bot.fetch_channel(link.channel_id)
-        if not ch:
+        if not is_messagable(ch):
             raise BotUsageError("Message could not be found")
 
         message = await ch.fetch_message(link.message_id)
