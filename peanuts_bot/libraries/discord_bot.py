@@ -1,11 +1,19 @@
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
+from enum import Enum
+import logging
 import re
 import traceback
 from typing import NamedTuple
 import typing
+import aiohttp
 import interactions as ipy
 
 from peanuts_bot.config import CONFIG
+
+
+logger = logging.getLogger(__name__)
+
 
 # Try to match discord message link https://discord.com/channels/<id>/<id>/<id>
 _DISCORD_MSG_URL_REGEX = (
@@ -106,3 +114,61 @@ def is_messagable(
     :return: True if the channel is messageable, False otherwise
     """
     return isinstance(channel, typing.get_args(ipy.TYPE_MESSAGEABLE_CHANNEL))
+
+
+class Features(str, Enum):
+    VOICE_ANNOUNCER = "voice_announcer"
+
+
+def requires_features(*flags: Features):
+    """Prevents a command from executing unless the given features are enabled.
+    **This does not work with listeners. Use `has_features` instead.**
+
+    Features are enabled by adding the literal flag value on a single line of
+    the bot's bio.
+    """
+
+    async def _check(ctx: ipy.BaseContext) -> bool:
+        return await has_features(*flags, guild=ctx.guild)
+
+    return ipy.check(_check)
+
+
+async def has_features(*flags: Features, guild: ipy.Guild | None) -> bool:
+    """Returns a boolean indicating if all of the features are enabled for the guild.
+
+    For convenience, this method will accept `None` for the guild value, but will
+    always return False if no guild is passed in.
+
+    Features are enabled by adding the literal flag value on a single line of
+    the guild's description.
+    """
+
+    desc = (guild and guild.description) or ""
+    if not desc:
+        return False
+
+    enabled_flags = [c.strip() for c in desc.replace(":", ",").split(",")]
+    return all(f.value in enabled_flags for f in flags)
+
+
+async def get_bot_description() -> str:
+    try:
+        async with get_api_session() as session:
+            async with session.get("applications/@me") as response:
+                response.raise_for_status()
+                data = await response.json()
+
+        return data.get("description", "")
+    except:
+        logger.warning("failed to fetch bot description", exc_info=True)
+        return ""
+
+
+@asynccontextmanager
+async def get_api_session():
+    async with aiohttp.ClientSession(
+        "https://discord.com/api/v10/",
+        headers={"Authorization": f"Bot {CONFIG.BOT_TOKEN}"},
+    ) as session:
+        yield session
