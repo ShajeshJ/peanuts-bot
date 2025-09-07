@@ -109,9 +109,8 @@ class ChannelExtension(ipy.Extension):
             return
 
         if all(
-            m
+            m.id == event.after.member.id or m.bot
             for m in bot_vstate.channel.voice_members
-            if m.id == event.after.member.id or m.bot
         ):
             logger.info("bot is in an empty voice channel. moving to this channel...")
             await event.after.channel.connect(muted=False, deafened=True)
