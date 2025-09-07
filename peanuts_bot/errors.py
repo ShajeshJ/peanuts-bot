@@ -4,7 +4,7 @@ import traceback
 import interactions as ipy
 
 from peanuts_bot.config import CONFIG
-from peanuts_bot.libraries.discord_bot import send_error_to_admin
+from peanuts_bot.libraries.discord.admin import send_error_to_admin
 
 logger = logging.getLogger(__name__)
 SOMETHING_WRONG = "Sorry, something went wrong. Try again later."

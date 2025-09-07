@@ -12,7 +12,7 @@ from mcstatus.status_response import JavaStatusResponse
 
 from peanuts_bot.config import MC_CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.discord_bot import send_error_to_admin
+from peanuts_bot.libraries.discord.admin import send_error_to_admin
 from peanuts_bot.libraries.image import decode_b64_image
 
 __all__ = ["MinecraftExtension"]

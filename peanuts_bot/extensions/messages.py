@@ -8,7 +8,7 @@ import interactions.client.utils.misc_utils as ipy_misc_utils
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.discord_bot import (
+from peanuts_bot.libraries.discord.messaging import (
     BAD_TWITTER_LINKS,
     DiscordMesageLink,
     get_discord_msg_links,

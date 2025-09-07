@@ -9,7 +9,7 @@ import interactions.api.voice.audio as ipyaudio
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.discord_bot import Features, has_features
+from peanuts_bot.libraries.discord.admin import Features, has_features
 from peanuts_bot.libraries.voice import generate_tts_audio
 
 __all__ = ["ChannelExtension"]

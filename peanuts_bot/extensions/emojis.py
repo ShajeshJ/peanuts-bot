@@ -10,7 +10,7 @@ import interactions as ipy
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError, SOMETHING_WRONG
-from peanuts_bot.libraries.discord_bot import (
+from peanuts_bot.libraries.discord.messaging import (
     disable_message_components,
     is_messagable,
 )
