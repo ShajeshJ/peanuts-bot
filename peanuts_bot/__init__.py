@@ -4,6 +4,7 @@ from peanuts_bot.extensions import ALL_EXTENSIONS
 
 from peanuts_bot.errors import on_error
 from peanuts_bot.extensions.internals import REQUIRED_EXTENSION_PROTOS
+from peanuts_bot.libraries.discord.voice import BotVoice
 
 
 bot = ipy.Client(
@@ -16,6 +17,7 @@ bot = ipy.Client(
 )
 
 bot.add_listener(on_error)
+BotVoice.init(bot)
 
 # Load bot extensions
 for ext_info in ALL_EXTENSIONS:

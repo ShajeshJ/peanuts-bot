@@ -5,11 +5,11 @@ import logging
 import os
 from typing import Annotated
 import interactions as ipy
-import interactions.api.voice.audio as ipyaudio
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.discord.admin import Features, has_features
+from peanuts_bot.libraries.discord.voice import BotVoice
 from peanuts_bot.libraries.voice import generate_tts_audio
 
 __all__ = ["ChannelExtension"]
@@ -121,9 +121,7 @@ class ChannelExtension(ipy.Extension):
             logger.info("user moved into another channel. ignoring...")
             return
 
-        await self._play_announcer_audio(
-            bot_vstate, event.after.member, VoiceAction.JOIN
-        )
+        await self._play_announcer_audio(event.after.member, VoiceAction.JOIN)
 
     @ipy.listen(ipy.events.VoiceUserJoin, delay_until_ready=True)
     async def announce_user_join(self, event: ipy.events.VoiceUserJoin):
@@ -152,7 +150,7 @@ class ChannelExtension(ipy.Extension):
             logger.info("user joined another channel. ignoring...")
             return
 
-        await self._play_announcer_audio(bot_vstate, event.author, VoiceAction.JOIN)
+        await self._play_announcer_audio(event.author, VoiceAction.JOIN)
 
     @ipy.listen(ipy.events.VoiceUserLeave, delay_until_ready=True)
     async def bot_leave(self, event: ipy.events.VoiceUserLeave):
@@ -197,10 +195,7 @@ class ChannelExtension(ipy.Extension):
         await event.channel.disconnect()
 
     async def _play_announcer_audio(
-        self,
-        bot_vstate: ipy.ActiveVoiceState,
-        user: ipy.User | ipy.Member,
-        action: VoiceAction,
+        self, user: ipy.User | ipy.Member, action: VoiceAction
     ):
         await asyncio.sleep(1)
         logger.info("announcing user arrival")
@@ -213,10 +208,10 @@ class ChannelExtension(ipy.Extension):
             logger.warning("failed to play announcer audio", exc_info=True)
             return
 
-        arrival_audio = ipyaudio.AudioVolume(arrival_audio_filepath)
-        await bot_vstate.play(arrival_audio)
+        async def cleanup_file(_) -> None:
+            try:
+                os.remove(arrival_audio_filepath)
+            except:
+                logger.warning("failed to clean up audio file", exc_info=True)
 
-        try:
-            os.remove(arrival_audio_filepath)
-        except:
-            logger.warning("failed to clean up audio file", exc_info=True)
+        BotVoice().queue_audio(arrival_audio_filepath, cleanup_file)
