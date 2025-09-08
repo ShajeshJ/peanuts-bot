@@ -9,8 +9,12 @@ import interactions as ipy
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.discord.admin import Features, has_features
-from peanuts_bot.libraries.discord.voice import BotVoice
-from peanuts_bot.libraries.voice import generate_tts_audio
+from peanuts_bot.libraries.discord.voice import (
+    BotVoice,
+    get_active_user_ids,
+    get_most_active_voice_channel,
+)
+from peanuts_bot.libraries.voice import build_cleanup_callback, generate_tts_audio
 
 __all__ = ["ChannelExtension"]
 
@@ -113,9 +117,10 @@ class ChannelExtension(ipy.Extension):
             )
             return
 
+        moving_user = event.after.member
+
         if all(
-            m.id == event.after.member.id or m.bot
-            for m in bot_vstate.channel.voice_members
+            moving_user.id == user_id for user_id in get_active_user_ids(bot_vstate)
         ):
             logger.info("bot is in an empty voice channel. moving to this channel...")
             bot_vstate = await event.bot.connect_to_vc(
@@ -124,13 +129,20 @@ class ChannelExtension(ipy.Extension):
                 muted=False,
                 deafened=True,
             )
+
+            if any(
+                moving_user.id != user_id for user_id in get_active_user_ids(bot_vstate)
+            ):
+                logger.info("user moved to an active voice channel. announcing...")
+                await self._play_announcer_audio(moving_user, VoiceAction.JOIN)
+
             return
 
         if bot_vstate.channel.id != event.after.channel.id:
             logger.info("user moved into another channel. ignoring...")
             return
 
-        await self._play_announcer_audio(event.after.member, VoiceAction.JOIN)
+        await self._play_announcer_audio(moving_user, VoiceAction.JOIN)
 
     @ipy.listen(ipy.events.VoiceUserJoin, delay_until_ready=True)
     async def announce_user_join(self, event: ipy.events.VoiceUserJoin):
@@ -215,15 +227,9 @@ class ChannelExtension(ipy.Extension):
         logger.info("announcing user arrival")
 
         try:
-            audio_file = generate_tts_audio(f"{user.username} has {action.value}")
+            audio_file = generate_tts_audio(f"{user.username} has {action.value}.")
         except ValueError:
             logger.warning("failed to play announcer audio", exc_info=True)
             return
 
-        async def cleanup_file(_) -> None:
-            try:
-                os.remove(audio_file)
-            except:
-                logger.warning("failed to clean up audio file", exc_info=True)
-
-        BotVoice().queue_audio(audio_file, cleanup_file)
+        BotVoice().queue_audio(audio_file, build_cleanup_callback(audio_file))
