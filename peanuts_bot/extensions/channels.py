@@ -105,7 +105,12 @@ class ChannelExtension(ipy.Extension):
         bot_vstate = event.bot.get_bot_voice_state(event.after.guild.id)
         if not bot_vstate or not bot_vstate.connected:
             logger.info("bot is not in a voice channel. joining...")
-            await event.after.channel.connect(muted=False, deafened=True)
+            bot_vstate = await event.bot.connect_to_vc(
+                guild_id=event.after.guild.id,
+                channel_id=event.after.channel.id,
+                muted=False,
+                deafened=True,
+            )
             return
 
         if all(
@@ -113,7 +118,12 @@ class ChannelExtension(ipy.Extension):
             for m in bot_vstate.channel.voice_members
         ):
             logger.info("bot is in an empty voice channel. moving to this channel...")
-            await event.after.channel.connect(muted=False, deafened=True)
+            bot_vstate = await event.bot.connect_to_vc(
+                guild_id=event.after.guild.id,
+                channel_id=event.after.channel.id,
+                muted=False,
+                deafened=True,
+            )
             return
 
         if bot_vstate.channel.id != event.after.channel.id:
@@ -142,7 +152,12 @@ class ChannelExtension(ipy.Extension):
         bot_vstate = event.bot.get_bot_voice_state(event.channel.guild.id)
         if not bot_vstate or not bot_vstate.connected:
             logger.info("bot is joining the channel")
-            await event.channel.connect(muted=False, deafened=True)
+            await event.bot.connect_to_vc(
+                guild_id=event.channel.guild.id,
+                channel_id=event.channel.id,
+                muted=False,
+                deafened=True,
+            )
             return
 
         if bot_vstate.channel.id != event.channel.id:
@@ -200,17 +215,15 @@ class ChannelExtension(ipy.Extension):
         logger.info("announcing user arrival")
 
         try:
-            arrival_audio_filepath = generate_tts_audio(
-                f"{user.username} has {action.value}"
-            )
+            audio_file = generate_tts_audio(f"{user.username} has {action.value}")
         except ValueError:
             logger.warning("failed to play announcer audio", exc_info=True)
             return
 
         async def cleanup_file(_) -> None:
             try:
-                os.remove(arrival_audio_filepath)
+                os.remove(audio_file)
             except:
                 logger.warning("failed to clean up audio file", exc_info=True)
 
-        BotVoice().queue_audio(arrival_audio_filepath, cleanup_file)
+        BotVoice().queue_audio(audio_file, cleanup_file)
