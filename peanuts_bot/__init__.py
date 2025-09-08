@@ -4,7 +4,7 @@ from peanuts_bot.extensions import ALL_EXTENSIONS
 
 from peanuts_bot.errors import on_error
 from peanuts_bot.extensions.internals import REQUIRED_EXTENSION_PROTOS
-from peanuts_bot.libraries.discord.voice import BotVoice
+from peanuts_bot.libraries.discord.voice import BotVoice, announcer_rejoin_on_startup
 
 
 bot = ipy.Client(
@@ -17,6 +17,7 @@ bot = ipy.Client(
 )
 
 bot.add_listener(on_error)
+bot.add_listener(announcer_rejoin_on_startup)
 BotVoice.init(bot)
 
 # Load bot extensions

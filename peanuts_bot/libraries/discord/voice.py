@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Generator
 from dataclasses import dataclass
 import logging
 import queue
@@ -9,6 +9,8 @@ import interactions as ipy
 import interactions.api.voice.audio as ipyaudio
 
 from peanuts_bot.config import CONFIG
+from peanuts_bot.libraries.discord.admin import Features, has_features
+from peanuts_bot.libraries.voice import build_cleanup_callback, generate_tts_audio
 
 
 logger = logging.getLogger(__name__)
@@ -133,3 +135,51 @@ class BotVoice:
             except:
                 logger.info("no more audio work to process")
                 work = None
+
+
+def get_active_user_ids(
+    bot_vstate: ipy.ActiveVoiceState,
+) -> Generator[ipy.Snowflake, None, None]:
+    """Returns a list of non-bot user ids in the given voice state"""
+    return (m.id for m in bot_vstate.channel.voice_members if not m.bot)
+
+
+def get_most_active_voice_channel(bot: ipy.Client) -> ipy.GuildVoice | None:
+    """Will get the voice channel with greatest number of non-bot users connected.
+
+    Returns None if there are no voice channels with users
+    """
+
+    guild = bot.get_guild(CONFIG.GUILD_ID)
+    if not guild:
+        return None
+
+    vcs = [
+        (ch, sum(1 for m in ch.voice_members if not m.bot))
+        for ch in guild.channels
+        if isinstance(ch, ipy.GuildVoice)
+    ]
+
+    if not vcs:
+        return None
+
+    most_active_vc, num_members = max(vcs, key=lambda vc_and_members: vc_and_members[1])
+
+    return most_active_vc if num_members > 0 else None
+
+
+@ipy.listen(ipy.events.Startup)
+async def announcer_rejoin_on_startup(event: ipy.events.Startup):
+    guild = event.bot.get_guild(CONFIG.GUILD_ID)
+    if not guild or not await has_features(Features.VOICE_ANNOUNCER, guild=guild):
+        return
+
+    vc_to_join = get_most_active_voice_channel(event.bot)
+    if not vc_to_join:
+        return
+
+    logger.info(f"Detected active voice channel on startup. Joining {vc_to_join.name}")
+    await event.bot.connect_to_vc(guild.id, vc_to_join.id, muted=False, deafened=True)
+
+    file = generate_tts_audio(f"{event.bot.user.username} restarted.")
+    BotVoice().queue_audio(file, build_cleanup_callback(file))

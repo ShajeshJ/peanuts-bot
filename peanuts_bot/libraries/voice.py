@@ -1,5 +1,12 @@
+from collections.abc import Awaitable, Callable
+import logging
+import os
+import typing
 import uuid
 from gtts import gTTS  # type: ignore[import-untyped]
+
+
+logger = logging.getLogger(__name__)
 
 
 def generate_tts_audio(text: str) -> str:
@@ -21,3 +28,13 @@ def generate_tts_audio(text: str) -> str:
     tts.save(filename)
 
     return filename
+
+
+def build_cleanup_callback(filename: str) -> Callable[[typing.Any], Awaitable[None]]:
+    async def _cleanup_file(_) -> None:
+        try:
+            os.remove(filename)
+        except:
+            logger.warning("failed to clean up audio file", exc_info=True)
+
+    return _cleanup_file
