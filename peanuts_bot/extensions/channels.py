@@ -217,8 +217,20 @@ class ChannelExtension(ipy.Extension):
             )
             return
 
-        logger.info("no users remaining. bot is disconnecting")
-        await event.channel.disconnect()
+        vc_to_join = get_most_active_voice_channel(event.bot)
+        if not vc_to_join:
+            logger.info("no users remaining. bot is disconnecting")
+            await event.channel.disconnect()
+            return
+
+        logger.info(f"no users remaining. joining active channel {vc_to_join.name}")
+        bot_vstate = await event.bot.connect_to_vc(
+            guild_id=vc_to_join.guild.id,
+            channel_id=vc_to_join.id,
+            muted=False,
+            deafened=True,
+        )
+        await self._play_announcer_audio(self.bot.user, VoiceAction.JOIN)
 
     async def _play_announcer_audio(
         self, user: ipy.User | ipy.Member, action: VoiceAction
