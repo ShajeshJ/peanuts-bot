@@ -171,7 +171,7 @@ def get_most_active_voice_channel(bot: ipy.Client) -> ipy.GuildVoice | None:
 @ipy.listen(ipy.events.Startup)
 async def announcer_rejoin_on_startup(event: ipy.events.Startup):
     guild = event.bot.get_guild(CONFIG.GUILD_ID)
-    if not guild or not await has_features(Features.VOICE_ANNOUNCER, guild=guild):
+    if not guild or not await has_features(Features.VOICE_ANNOUNCER, bot=event.bot):
         return
 
     vc_to_join = get_most_active_voice_channel(event.bot)

@@ -90,7 +90,7 @@ class ChannelExtension(ipy.Extension):
         logger.debug("voice state update event")
 
         guild = event.bot.get_guild(CONFIG.GUILD_ID)
-        if not await has_features(Features.VOICE_ANNOUNCER, guild=guild):
+        if not await has_features(Features.VOICE_ANNOUNCER, bot=event.bot):
             logger.debug("voice_announcer feature is not enabled")
             return
 
@@ -153,7 +153,7 @@ class ChannelExtension(ipy.Extension):
         )
 
         guild = event.bot.get_guild(CONFIG.GUILD_ID)
-        if not await has_features(Features.VOICE_ANNOUNCER, guild=guild):
+        if not await has_features(Features.VOICE_ANNOUNCER, bot=event.bot):
             logger.debug("voice_announcer feature is not enabled")
             return
 
@@ -187,7 +187,7 @@ class ChannelExtension(ipy.Extension):
         )
 
         guild = event.bot.get_guild(CONFIG.GUILD_ID)
-        if not await has_features(Features.VOICE_ANNOUNCER, guild=guild):
+        if not await has_features(Features.VOICE_ANNOUNCER, bot=event.bot):
             logger.debug("voice_announcer feature is not enabled")
             return
 

@@ -1,9 +1,13 @@
 from enum import Enum
+import logging
 import traceback
 
 import interactions as ipy
 
 from peanuts_bot.config import CONFIG
+
+
+logger = logging.getLogger(__name__)
 
 
 async def send_error_to_admin(error: Exception, bot: ipy.Client):
@@ -33,17 +37,15 @@ class Features(str, Enum):
     VOICE_ANNOUNCER = "voice_announcer"
 
 
-async def has_features(*flags: Features, guild: ipy.Guild | None) -> bool:
-    """Returns a boolean indicating if all of the features are enabled for the guild.
-
-    For convenience, this method will accept `None` for the guild value, but will
-    always return False if no guild is passed in.
+async def has_features(*flags: Features, bot: ipy.Client) -> bool:
+    """Returns a boolean indicating if all of the features are enabled for the bot.
 
     Features are enabled by adding the literal flag value on a single line of
-    the guild's description.
+    the bot's description.
     """
 
-    desc = (guild and guild.description) or ""
+    desc = (bot.app.description) or "<description-unavailable>"
+    logger.debug(f"Guild description: {desc!r}")
     if not desc:
         return False
 
@@ -60,6 +62,6 @@ def requires_features(*flags: Features):
     """
 
     async def _check(ctx: ipy.BaseContext) -> bool:
-        return await has_features(*flags, guild=ctx.guild)
+        return await has_features(*flags, bot=ctx.bot)
 
     return ipy.check(_check)
