@@ -9,7 +9,7 @@ packages = [{ include = "peanuts_bot" }]
 
 [tool.poetry.dependencies]
 python = "3.10.5"
-discord-py-interactions = { version = "5.15.0", extras = ["voice"] }
+discord-py-interactions = { version = "5.16.0rc3", extras = ["voice"] }
 aiohttp = "3.11.6"
 async-lru = "2.0.2"
 matplotlib = "3.10.6"
