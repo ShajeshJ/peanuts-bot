@@ -17,14 +17,24 @@ make remote_deploy  # Deploy to Pi from origin/main
 app.py main()
 ├── load_env()              → loads .env, returns ENV value
 ├── configure_logging()     → colored console logging
-├── import peanuts_bot      → triggers peanuts_bot/__init__.py:
-│   ├── ipy.Client created (token, ALL intents, debug_scope=GUILD_ID)
-│   ├── on_error listener registered
+├── import peanuts_bot      → deferred deliberately so logging is ready first
+│   │                         triggers peanuts_bot/__init__.py:
+│   ├── ipy.Client created (token, ALL intents, debug_scope=GUILD_ID,
+│   │   delete_unused_application_cmds=True, send_command_tracebacks=False,
+│   │   activity=Watching "/help")
+│   ├── on_error listener registered (disable_default_listeners=True)
 │   ├── voice listener + BotVoice.init(bot) registered
-│   └── bot.load_extension() called for each entry in ALL_EXTENSIONS
+│   ├── bot.load_extension() called for each entry in ALL_EXTENSIONS
+│   └── protocol validation: all loaded extensions must implement HelpCmdProto
 ├── health_probe.start_background_server()  → if CONFIG.HEALTH_PROBE
 └── bot.start()             → connect to Discord
 ```
+
+**`errors.py` handler detail:**
+- `disable_default_listeners=True` — fully replaces ipy's built-in error handler (not additive)
+- `BotUsageError` → sends error message to user ephemerally, silently
+- Any other error → sends `SOMETHING_WRONG` to user, DMs admin the traceback, then re-raises
+- Non-`InteractionContext` source → re-raises as wrapped exception (crashes the process)
 
 ## Critical Files
 
@@ -118,3 +128,9 @@ See `.claude/TODO.md` for the incremental list of codebase sections not yet docu
 |---|---|
 | `.claude/STYLE_GUIDE.md` | Writing or reviewing any code |
 | `.claude/TODO.md` | Deciding what context to document next |
+| `.claude/libraries_discord.md` | Working with shared Discord/voice utilities (`admin`, `api`, `messaging`, `discord/voice`, `libraries/voice`) |
+| `.claude/libraries_stocks_api.md` | Working with the stock data abstraction layer or Alpha Vantage provider |
+| `.claude/libraries_image.md` | Working with image type detection, metadata fetching, or base64 decoding |
+| `.claude/deployment.md` | Deploying the bot, managing the Pi service, or understanding CI/CD |
+| `.claude/libraries_utils.md` | Working with dice parsing, `Annotated` introspection, or iterable counting helpers |
+| `.claude/extensions.md` | Working on any extension (help, roles, channels, users, messages, emojis, rng, stocks, minecraft, local) |

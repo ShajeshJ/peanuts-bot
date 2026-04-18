@@ -18,65 +18,89 @@ When splitting: replace the single checkbox with numbered sub-items inline, each
 
 ## Libraries
 
-### [ ] `libraries/discord/` — Shared Discord utilities
+### [x] `libraries/discord/` — Shared Discord utilities
 Four modules used across multiple extensions. Document what each provides and when to use it.
 - `admin.py` — sending error/alert messages to admin user
 - `api.py` — shared aiohttp session management (async context manager)
 - `messaging.py` — helpers for fetching/sending messages, type guards, DiscordMessageLink
 - `voice.py` — `BotVoice` singleton: voice channel join/leave/move logic, TTS announcement
 
-### [ ] `libraries/voice.py` — Voice state & TTS
+### [x] `libraries/voice.py` — Voice state & TTS
 The non-Discord-specific voice layer: TTS audio generation, file cleanup, audio queue management. Feeds into `libraries/discord/voice.py`.
 
-### [ ] `libraries/stocks_api/` — Stock data abstraction
+### [x] `libraries/stocks_api/` — Stock data abstraction
 Multi-provider stock API with an interface/protocol layer:
 - `interface.py` — `IStockProvider`, `IDaily`, `IQuote` abstract interfaces + TypeVars
 - `providers/alphav.py` — Alpha Vantage implementation
 - `__init__.py` — `StockAPI` wrapper that accepts any provider
 - `errors.py` — Stock-specific exceptions
 
-### [ ] `libraries/image.py` — Image generation
+### [x] `libraries/image.py` — Image generation
 Chart/graph rendering (matplotlib-based). Used by the stocks extension.
 
-### [ ] `libraries/tabletop_roller.py` — Dice roller
+### [x] `libraries/tabletop_roller.py` — Dice roller
 Regex-based dice expression parser and roller. Used by the RNG extension.
 
-### [ ] `libraries/types_ext.py` + `libraries/itertools_ext.py` — Pure utilities
+### [x] `libraries/types_ext.py` + `libraries/itertools_ext.py` — Pure utilities
 Small typed utility functions. `types_ext` includes `get_annotated_subtype` used by `help.py` for introspecting slash command parameters.
 
 ---
 
 ## Extensions
 
-### [ ] `extensions/help.py` — `/help` command
+### [x] `extensions/help.py` — `/help` command
 Paginates all registered slash commands into embeds. Reads extension colors via `HelpCmdProto`. Uses `Paginator` from interactions-py.
 
-### [ ] `extensions/roles.py` — `/role` commands
+### [x] `extensions/roles.py` — `/role` commands
 Manages joinable mention roles: create, delete, join (dropdown), leave (dropdown). Joinable roles are identified by zero permissions + mentionable flag.
 
-### [ ] `extensions/channels.py` — `/channel` + voice auto-management
+### [x] `extensions/channels.py` — `/channel` + voice auto-management
 Channel management commands + event listeners that auto-create/delete temporary voice channels.
 
-### [ ] `extensions/users.py` — User info commands
+### [x] `extensions/users.py` — User info commands
 Slash commands for looking up user info (nicknames, avatar, etc.).
 
-### [ ] `extensions/messages.py` — Message utility commands
+### [x] `extensions/messages.py` — Message utility commands
 Right-click context menu commands and slash commands for working with messages (quoting, linking, etc.).
 
-### [ ] `extensions/emojis.py` — Emoji management
+### [x] `extensions/emojis.py` — Emoji management
 Admin-gated emoji upload flow: user submits image → admin approves/rejects via buttons → emoji added to server.
 
-### [ ] `extensions/rng.py` — Random & dice commands
+### [x] `extensions/rng.py` — Random & dice commands
 Dice rolls, random selection, coin flip. Uses `tabletop_roller.py` for dice parsing.
 
-### [ ] `extensions/stocks.py` — Stock lookup commands
+### [x] `extensions/stocks.py` — Stock lookup commands
 Slash commands for querying stock quotes/charts. Uses `StockAPI` from `libraries/stocks_api/`. Only loaded when `ALPHAV_CONNECTED` config is valid.
 
-### [ ] `extensions/minecraft.py` — Minecraft server commands
+### [x] `extensions/minecraft.py` — Minecraft server commands
 Slash commands for checking Minecraft server status, looking up player info. Only loaded when `MC_CONFIG` config is valid.
 
-### [ ] `extensions/local.py` — Dev-only commands
+### [x] `extensions/local.py` — Dev-only commands
 Commands only available in local/dev environment (`CONFIG.IS_LOCAL`). Useful for testing bot behaviour without affecting prod.
+
+---
+
+## Infrastructure & Core Detail
+
+### [x] Deployment infrastructure — `pi_bootstrap/` + Makefile
+The Pi deployment flow is undocumented. Document:
+- `make remote_deploy` flow (SSH_HOST + START_DIR env vars, remote-deploy.sh steps)
+- `make pi_install` (systemd install), `pi_status`, `pi_logs` targets
+- systemd service behaviour (auto-restart, 120s delay, `pi` user, network-online dependency)
+- `.legacy_render_bootstrap/` — note it's a dead legacy Render deployment, no longer active
+
+### [x] `peanuts_bot/__init__.py` + `app.py` — Bot init detail
+Migration-relevant bot options not captured in CLAUDE.md:
+- `delete_unused_application_cmds=True` — stale slash commands auto-deleted on startup
+- `send_command_tracebacks=False` — suppresses ipy's built-in traceback DMs
+- `activity` — bot status shows "Watching /help"
+- `app.py` defers `import peanuts_bot` into `main()` deliberately so logging is configured first
+
+### [x] `peanuts_bot/errors.py` — Error handler detail
+Migration-relevant detail not captured:
+- `@ipy.listen(disable_default_listeners=True)` — fully replaces ipy's built-in error handler
+- Non-`InteractionContext` errors re-raise as a wrapped exception (crashes the process)
+- `SOMETHING_WRONG` constant — importable generic message used by extensions (e.g. `emojis.py`)
 
 ---
 
