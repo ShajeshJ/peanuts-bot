@@ -27,7 +27,7 @@ async def send_error_to_admin(error: Exception, bot: ipy.Client):
         embeds=ipy.Embed(
             title=f"Error: {type(error).__name__}",
             color=ipy.BrandColors.RED,
-            description=f"```\n{tb[:ipy.EMBED_MAX_DESC_LENGTH - 8]}```",
+            description=f"```\n{tb[: ipy.EMBED_MAX_DESC_LENGTH - 8]}```",
         ),
         ephemeral=True,
     )
