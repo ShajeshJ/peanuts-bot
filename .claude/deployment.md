@@ -66,7 +66,7 @@ GitHub environment name: **`production`**.
 - **Python:** 3.10.5, pinned via `.tool-versions` (asdf) and `pyproject.toml`
 - **Package manager:** Poetry
 - **CI installs:** `poetry install --only main --sync` (no dev deps on Pi)
-- **Dev deps:** `black`, `mypy`, `types-python-dateutil`
+- **Dev deps:** `ruff`, `mypy`, `types-python-dateutil`
 
 ---
 

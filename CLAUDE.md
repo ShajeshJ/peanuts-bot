@@ -90,6 +90,10 @@ class MyExtension(ipy.Extension):
 - No built-in `debug_scope`; use `bot.tree.sync(guild=discord.Object(id=GUILD_ID))` in `setup_hook` for guild-scoped slash commands
 - discord.py slash commands live in `app_commands.CommandTree` (`bot.tree`); must call `tree.sync()` to register
 
+## Dependency Policy
+
+All dependencies in `pyproject.toml` must be pinned to an **exact version** (no `^`, `~`, `>=`, or other range specifiers). When adding a new dependency, pin it to the specific version resolved at install time.
+
 ## Libraries & Dependencies (relevant to migration)
 - `typedenv` — config loading (keep)
 - `aiohttp` — async HTTP (keep)
@@ -103,7 +107,7 @@ class MyExtension(ipy.Extension):
 After making any code additions or changes:
 1. **Update context docs** — reflect the change in whichever `.claude/` file covers the affected area (or `CLAUDE.md` itself if it's always-needed info)
 2. **Check user stories** — open `.claude/user_stories.md`; update existing stories or add new ones if the change affects bot behaviour
-3. **Lint & format** — run `mypy` and `black` on every changed file before considering the task done
+3. **Lint & format** — run `mypy` and `ruff format` on every changed file before considering the task done
 
 ## Style Guide
 See `.claude/STYLE_GUIDE.md` for full coding conventions. Key rules:

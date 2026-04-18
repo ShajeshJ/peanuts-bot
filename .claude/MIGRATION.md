@@ -107,7 +107,7 @@ Mark each step `[x] done` after you have verified the user stories and committed
 
 Before closing any step:
 1. Run `mypy peanuts_bot/` — must pass with no new errors
-2. Run `black --check peanuts_bot/` — must be clean (run `black peanuts_bot/` to auto-fix)
+2. Run `ruff format peanuts_bot/` — must be clean (run `ruff format peanuts_bot/` to auto-fix)
 3. Run the specified user stories manually
 4. Commit: `git commit -m "refactor: <description>"`
 5. Confirm with the user before starting the next step (you may want to pause between sessions)
