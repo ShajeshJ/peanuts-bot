@@ -17,7 +17,7 @@ ALL_EXTENSIONS: list[ExtInfo] = [
     ExtInfo("Role", "peanuts_bot.extensions.roles"),
     ExtInfo("Channel", "peanuts_bot.extensions.channels", migrated=True),
     ExtInfo("Emoji", "peanuts_bot.extensions.emojis"),
-    ExtInfo("RNG", "peanuts_bot.extensions.rng"),
+    ExtInfo("RNG", "peanuts_bot.extensions.rng", migrated=True),
     ExtInfo("User", "peanuts_bot.extensions.users", migrated=True),
     ExtInfo("Message", "peanuts_bot.extensions.messages"),
 ]

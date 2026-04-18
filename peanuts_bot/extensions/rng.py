@@ -1,117 +1,138 @@
 import logging
 import random
 import re
-from typing import Annotated
-import interactions as ipy
+from typing import Any
 
-from peanuts_bot.config import CONFIG
-from peanuts_bot.errors import BotUsageError
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+from peanuts_bot.errors import BotUsageError, handle_interaction_error
 from peanuts_bot.libraries.tabletop_roller import DiceRoll, parse_dice_roll
 
 __all__ = ["RngExtension"]
 
 logger = logging.getLogger(__name__)
 
-
-RANDOM_BUTTON_PREFIX = "random_"
-RANDOM_BUTTON_REGEX = re.compile(
-    f"^{RANDOM_BUTTON_PREFIX}(?P<min>-?\\d+)_(?P<max>-?\\d+)$"
-)
-ROLL_BUTTON_PREFIX = "roll_"
+_RANDOM_BUTTON_TEMPLATE = r"random_(?P<min>-?\d+)_(?P<max>-?\d+)"
+_ROLL_BUTTON_TEMPLATE = r"roll_(?P<roll>[+-]?\d*d\d+(?:[+-]\d+)?)"
 
 
-def get_random_button(min: int, max: int) -> ipy.Button:
-    return ipy.Button(
-        label="Randomize Again",
-        custom_id=f"{RANDOM_BUTTON_PREFIX}{min}_{max}",
-        style=ipy.ButtonStyle.PRIMARY,
-    )
-
-
-def parse_random_button_id(custom_id: str) -> tuple[int, int]:
-    match = RANDOM_BUTTON_REGEX.match(custom_id)
-    if not match:
-        raise ValueError(f"Invalid random button ID '{custom_id}'")
-
-    return int(match["min"]), int(match["max"])
-
-
-def get_roll_button(roll: DiceRoll) -> ipy.Button:
-    return ipy.Button(
-        label="Roll Again",
-        custom_id=f"{ROLL_BUTTON_PREFIX}{roll}",
-        style=ipy.ButtonStyle.PRIMARY,
-    )
-
-
-def append_new_result(msg: str, result: str, is_first: bool = False) -> str:
-    """Helper method to append a new result to the end
-    of the code block in the message content
-    """
+def _append_new_result(msg: str, result: str, is_first: bool = False) -> str:
     if not is_first:
         msg = msg.rstrip("*\n`")
     return f"{msg}\n{result}{('*' if not is_first else '')}\n```"
 
 
-class RngExtension(ipy.Extension):
+class RandomButton(
+    discord.ui.DynamicItem[discord.ui.Button], template=_RANDOM_BUTTON_TEMPLATE
+):
+    def __init__(self, min_val: int, max_val: int):
+        super().__init__(
+            discord.ui.Button(
+                label="Randomize Again",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"random_{min_val}_{max_val}",
+            )
+        )
+        self.min_val = min_val
+        self.max_val = max_val
+
+    @classmethod
+    async def from_custom_id(
+        cls,
+        interaction: discord.Interaction,
+        item: discord.ui.Item[Any],
+        match: re.Match[str],
+    ) -> "RandomButton":
+        return cls(int(match["min"]), int(match["max"]))
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        if not interaction.message:
+            return
+        content = _append_new_result(
+            interaction.message.content,
+            str(random.randint(self.min_val, self.max_val)),
+        )
+        await interaction.response.edit_message(content=content)
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: Exception
+    ) -> None:
+        await handle_interaction_error(interaction, error)
+
+
+class RollButton(
+    discord.ui.DynamicItem[discord.ui.Button], template=_ROLL_BUTTON_TEMPLATE
+):
+    def __init__(self, roll: DiceRoll):
+        super().__init__(
+            discord.ui.Button(
+                label="Roll Again",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"roll_{roll}",
+            )
+        )
+        self.roll = roll
+
+    @classmethod
+    async def from_custom_id(
+        cls,
+        interaction: discord.Interaction,
+        item: discord.ui.Item[Any],
+        match: re.Match[str],
+    ) -> "RollButton":
+        return cls(parse_dice_roll(match["roll"]))
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        if not interaction.message:
+            return
+        rolled_dice = [
+            random.randint(1, self.roll.sides) for _ in range(self.roll.count)
+        ]
+        result = sum(rolled_dice) + self.roll.modifier
+        content = _append_new_result(
+            interaction.message.content,
+            f"Rolls: {rolled_dice} | Result: {result}",
+        )
+        await interaction.response.edit_message(content=content)
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: Exception
+    ) -> None:
+        await handle_interaction_error(interaction, error)
+
+
+class RngExtension(commands.Cog):
     @staticmethod
-    def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.CARROT
+    def get_help_color() -> discord.Color:
+        return discord.Color.from_str("#E67E22")
 
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
+    @app_commands.command()
+    @app_commands.describe(
+        min="Minimum (inclusive) value of the random number",
+        max="Maximum (inclusive) value of the random number",
+    )
     async def random(
-        self,
-        ctx: ipy.SlashContext,
-        min: Annotated[
-            int,
-            ipy.slash_int_option(
-                description="Minimum (inclusive) value of the random number",
-                required=True,
-            ),
-        ],
-        max: Annotated[
-            int,
-            ipy.slash_int_option(
-                description="Maximum (inclusive) value of the random number",
-                required=True,
-            ),
-        ],
-    ):
+        self, interaction: discord.Interaction, min: int, max: int
+    ) -> None:
         """Generate a random number between two values"""
-
         if min > max:
             raise BotUsageError("Minimum value cannot be greater than maximum value")
 
-        content = append_new_result(
+        content = _append_new_result(
             msg=f"Randomize ({min} to {max}):\n```",
             result=str(random.randint(min, max)),
             is_first=True,
         )
-        await ctx.send(content, components=[get_random_button(min, max)])
+        view = discord.ui.View()
+        view.add_item(RandomButton(min, max))
+        await interaction.response.send_message(content, view=view)
 
-    @ipy.component_callback(RANDOM_BUTTON_REGEX)
-    async def rerun_random(self, ctx: ipy.ComponentContext):
-        """Re-run the random command with the same parameters"""
-        if not ctx.custom_id or not ctx.message:
-            return
-
-        min, max = parse_random_button_id(ctx.custom_id)
-        content = append_new_result(ctx.message.content, str(random.randint(min, max)))
-        await ctx.edit_origin(content=content, components=ctx.message.components)
-
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
-    async def roll(
-        self,
-        ctx: ipy.SlashContext,
-        roll: Annotated[
-            str,
-            ipy.slash_str_option(
-                description="A dice roll to execute (e.g. 1d20+5)", required=True
-            ),
-        ],
-    ):
+    @app_commands.command()
+    @app_commands.describe(roll="A dice roll to execute (e.g. 1d20+5)")
+    async def roll(self, interaction: discord.Interaction, roll: str) -> None:
         """Roll dice and calculate the results using dice notation for most tabletop games"""
-
         try:
             parsed_roll = parse_dice_roll(roll)
         except ValueError:
@@ -122,31 +143,16 @@ class RngExtension(ipy.Extension):
         ]
         result = sum(rolled_dice) + parsed_roll.modifier
 
-        content = append_new_result(
+        content = _append_new_result(
             msg=f"Rolling {parsed_roll}:\n```",
             result=f"Rolls: {rolled_dice} | Result: {result}",
             is_first=True,
         )
-        await ctx.send(content, components=[get_roll_button(parsed_roll)])
+        view = discord.ui.View()
+        view.add_item(RollButton(parsed_roll))
+        await interaction.response.send_message(content, view=view)
 
-    @ipy.component_callback(re.compile(f"^{ROLL_BUTTON_PREFIX}.*"))
-    async def rerun_roll(self, ctx: ipy.ComponentContext):
-        """Re-run the roll command with the same parameters"""
-        if not ctx.custom_id or not ctx.message:
-            return
 
-        roll = ctx.custom_id.replace(ROLL_BUTTON_PREFIX, "")
-        try:
-            parsed_roll = parse_dice_roll(roll)
-        except ValueError:
-            raise BotUsageError(f"Invalid dice roll '{roll}'")
-
-        rolled_dice = [
-            random.randint(1, parsed_roll.sides) for _ in range(parsed_roll.count)
-        ]
-        result = sum(rolled_dice) + parsed_roll.modifier
-
-        content = append_new_result(
-            msg=ctx.message.content, result=f"Rolls: {rolled_dice} | Result: {result}"
-        )
-        await ctx.edit_origin(content=content, components=ctx.message.components)
+async def setup(bot: commands.Bot) -> None:
+    bot.add_dynamic_items(RandomButton, RollButton)
+    await bot.add_cog(RngExtension())

@@ -90,7 +90,7 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 |---|---|---|
 | 1 | `[x] done` | Core infrastructure: dependencies + bot startup (no extensions) |
 | 2 | `[x] done` | `users.py` + `channels.py` (channel create only, no voice) |
-| 3 | `[ ] pending` | `rng.py` (slash commands + DynamicItem buttons) |
+| 3 | `[x] done` | `rng.py` (slash commands + DynamicItem buttons) |
 | 4 | `[ ] pending` | `roles.py` (slash commands + persistent View dropdowns) |
 | 5 | `[ ] pending` | `messages.py` (listeners + league ping flow) |
 | 6 | `[ ] pending` | `emojis.py` (modals + context menu + persistent approval View) |
