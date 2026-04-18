@@ -89,7 +89,7 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 | Step | Status | Description |
 |---|---|---|
 | 1 | `[x] done` | Core infrastructure: dependencies + bot startup (no extensions) |
-| 2 | `[ ] pending` | `users.py` + `channels.py` (channel create only, no voice) |
+| 2 | `[x] done` | `users.py` + `channels.py` (channel create only, no voice) |
 | 3 | `[ ] pending` | `rng.py` (slash commands + DynamicItem buttons) |
 | 4 | `[ ] pending` | `roles.py` (slash commands + persistent View dropdowns) |
 | 5 | `[ ] pending` | `messages.py` (listeners + league ping flow) |
@@ -108,8 +108,8 @@ Mark each step `[x] done` after you have verified the user stories and committed
 Before closing any step:
 1. Run `mypy peanuts_bot/` — must pass with no new errors
 2. Run `ruff format peanuts_bot/` — must be clean (run `ruff format peanuts_bot/` to auto-fix)
-3. Run the specified user stories manually
-4. Commit: `git commit -m "refactor: <description>"`
+3. Tell the user what to run (`make run`) and which user stories to verify — then **stop and wait**
+4. Only after the user confirms the stories pass: update the step status in the Migration Progress table and commit: `git commit -m "refactor: <description>"`
 5. Confirm with the user before starting the next step (you may want to pause between sessions)
 
 ---
@@ -171,8 +171,18 @@ bot = PeanutsBot(
 
 Note: `tree.sync()` replaces the full guild command list on each sync, which is equivalent to `delete_unused_application_cmds=True`.
 
-**`peanuts_bot/errors.py`:**
-The `on_app_command_error` hook receives `(interaction: discord.Interaction, error: app_commands.AppCommandError)`. Errors from component callbacks (View buttons/selects) go to each View's `on_error` method — see Step 3+ for the shared error handler pattern.
+**`peanuts_bot/__init__.py` — error handler wiring:**
+Do NOT use `on_app_command_error` as a Bot method — it is not automatically wired to `CommandTree.on_error`. Instead subclass `CommandTree` and pass it via `tree_cls`:
+
+```python
+class _PeanutsTree(app_commands.CommandTree):
+    async def on_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        await handle_interaction_error(interaction, error)
+
+bot = PeanutsBot(..., tree_cls=_PeanutsTree)
+```
+
+Errors from component callbacks (View buttons/selects) go to each View's `on_error` method — see Step 3+ for the shared error handler pattern.
 
 ```python
 async def handle_interaction_error(interaction: discord.Interaction, error: Exception):
@@ -253,14 +263,11 @@ class ChannelExtension(commands.Cog):
         ...
 ```
 
-Note: `app_commands.Group` must be added to `self.bot.tree` in `cog_load` or defined as a class-level attribute and auto-added when the Cog is loaded. The recommended pattern is a class-level `app_commands.Group`:
+Note: do NOT use `channel = _channel_group` as a Cog class attribute — the Cog metaclass copies the group and alters callback dispatch, causing `CommandSignatureMismatch` at runtime. Instead register the group directly on the tree in `setup()`:
 ```python
-class ChannelExtension(commands.Cog):
-    channel = app_commands.Group(name="channel", description="Channel management commands")
-    
-    @channel.command(name="create")
-    async def channel_create(self, interaction: discord.Interaction, ...):
-        ...
+async def setup(bot: commands.Bot) -> None:
+    bot.tree.add_command(_channel_group)
+    await bot.add_cog(ChannelExtension())
 ```
 
 **Color mapping** (reference for all steps):

@@ -9,15 +9,16 @@ logger = logging.getLogger(__name__)
 class ExtInfo(NamedTuple):
     ext_name: str
     module_path: str
+    migrated: bool = False
 
 
 ALL_EXTENSIONS: list[ExtInfo] = [
     ExtInfo("Help", "peanuts_bot.extensions.help"),
     ExtInfo("Role", "peanuts_bot.extensions.roles"),
-    ExtInfo("Channel", "peanuts_bot.extensions.channels"),
+    ExtInfo("Channel", "peanuts_bot.extensions.channels", migrated=True),
     ExtInfo("Emoji", "peanuts_bot.extensions.emojis"),
     ExtInfo("RNG", "peanuts_bot.extensions.rng"),
-    ExtInfo("User", "peanuts_bot.extensions.users"),
+    ExtInfo("User", "peanuts_bot.extensions.users", migrated=True),
     ExtInfo("Message", "peanuts_bot.extensions.messages"),
 ]
 

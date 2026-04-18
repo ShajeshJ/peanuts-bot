@@ -1,5 +1,7 @@
 import logging
-import interactions as ipy
+
+import discord
+from discord.ext import commands
 
 from peanuts_bot.config import CONFIG
 
@@ -11,20 +13,21 @@ logger = logging.getLogger(__name__)
 _MODIFY_MEMBER_SAFE_ERROR_CODES = [50013]
 
 
-class UserExtension(ipy.Extension):
+class UserExtension(commands.Cog):
     @staticmethod
-    def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.GREENSEA
+    def get_help_color() -> discord.Color:
+        return discord.Color.from_str("#1ABC9C")
 
-    @ipy.listen("on_member_update", delay_until_ready=True)
-    async def add_username_to_nickname(self, event: ipy.events.MemberUpdate):
+    @commands.Cog.listener("on_member_update")
+    async def add_username_to_nickname(
+        self, before: discord.Member, after: discord.Member
+    ):
         """Updates a user's nickname to ensure that it contains their username"""
 
-        if event.guild_id != CONFIG.GUILD_ID:
+        if after.guild.id != CONFIG.GUILD_ID:
             return
 
-        member = event.after
-        username, old_nick = member.user.username, member.nick
+        username, old_nick = after.name, after.nick
 
         if old_nick is None:
             logger.debug(f"nickname was reset for '{username}'")
@@ -39,16 +42,14 @@ class UserExtension(ipy.Extension):
             logger.debug(f"new nick '{new_nick}' is too long. resetting...")
 
             try:
-                # docstring says to omit the first arg to reset, but based on testing,
-                # this only resets the nickname if None is explicitly passed
-                await member.edit_nickname(None, reason="nickname too long")  # type: ignore[arg-type]
-            except ipy.errors.HTTPException as e:
+                await after.edit(nick=None, reason="nickname too long")
+            except discord.HTTPException as e:
                 if e.code not in _MODIFY_MEMBER_SAFE_ERROR_CODES:
                     raise
                 logger.info(f"failed to reset nickname for '{username}'")
                 return
 
-            await member.send(
+            await after.send(
                 f"The nickname, '{old_nick}' is too long! "
                 f"Please shorten it to {32 - (len(new_nick) - len(old_nick))} characters or less."
             )
@@ -57,11 +58,15 @@ class UserExtension(ipy.Extension):
         logger.debug(f"updating nickname for '{old_nick}'")
 
         try:
-            await member.edit_nickname(new_nick, reason="adding username to nickname")
-        except ipy.errors.HTTPException as e:
+            await after.edit(nick=new_nick, reason="adding username to nickname")
+        except discord.HTTPException as e:
             if e.code not in _MODIFY_MEMBER_SAFE_ERROR_CODES:
                 raise
-            logger.info(f"failed to reset nickname for '{username}'")
+            logger.info(f"failed to update nickname for '{username}'")
             return
 
-        logger.debug(f"updated nickname to '{member.nickname}'")
+        logger.debug(f"updated nickname to '{after.nick}'")
+
+
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(UserExtension())
