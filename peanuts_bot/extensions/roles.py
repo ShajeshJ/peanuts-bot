@@ -161,8 +161,9 @@ class RoleExtension(ipy.Extension):
             selected_roles=(split_role_option_value(v) for v in ctx.values),
             ctx=ctx,
             should_skip=(
-                lambda ctx, r: isinstance(ctx.author, ipy.Member)
-                and not ctx.author.has_role(r)
+                lambda ctx, r: (
+                    isinstance(ctx.author, ipy.Member) and not ctx.author.has_role(r)
+                )
             ),
             invalid_role_callback=invalid_roles.append,
         )
