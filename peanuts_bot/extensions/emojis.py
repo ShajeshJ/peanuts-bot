@@ -156,7 +156,7 @@ class EmojiExtension(ipy.Extension):
             return (
                 filename
                 if len(filename) + len(label_prefix) < 45
-                else f"...{filename[len(label_prefix) - 42:]}"
+                else f"...{filename[len(label_prefix) - 42 :]}"
             )
 
         text_fields = (
