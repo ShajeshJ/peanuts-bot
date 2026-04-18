@@ -1,8 +1,9 @@
 from typing import Protocol, runtime_checkable
-import interactions as ipy
+
+import discord
 
 
 @runtime_checkable
 class HelpCmdProto(Protocol):
     @staticmethod
-    def get_help_color() -> ipy.Color: ...
+    def get_help_color() -> discord.Color: ...

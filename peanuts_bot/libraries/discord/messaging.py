@@ -2,7 +2,33 @@ from collections.abc import Iterator
 import re
 import typing
 
-import interactions as ipy
+import discord
+
+
+_DisableableItem = (
+    discord.ui.Button
+    | discord.ui.Select
+    | discord.ui.UserSelect
+    | discord.ui.RoleSelect
+    | discord.ui.ChannelSelect
+    | discord.ui.MentionableSelect
+)
+
+
+def _is_disableable(
+    item: discord.ui.Item[discord.ui.View],
+) -> typing.TypeGuard[_DisableableItem]:
+    return isinstance(
+        item,
+        (
+            discord.ui.Button,
+            discord.ui.Select,
+            discord.ui.UserSelect,
+            discord.ui.RoleSelect,
+            discord.ui.ChannelSelect,
+            discord.ui.MentionableSelect,
+        ),
+    )
 
 
 # Try to match discord message link https://discord.com/channels/<id>/<id>/<id>
@@ -28,34 +54,34 @@ BAD_TWITTER_LINKS = ["https://twitter.com", "https://x.com"]
 
 
 def is_messagable(
-    channel: ipy.BaseChannel | None,
-) -> typing.TypeGuard[ipy.TYPE_MESSAGEABLE_CHANNEL]:
+    channel: object,
+) -> typing.TypeGuard[discord.abc.Messageable]:
     """
     Type guard to check if a channel is messageable
 
     :param channel: The channel to check
     :return: True if the channel is messageable, False otherwise
     """
-    return isinstance(channel, typing.get_args(ipy.TYPE_MESSAGEABLE_CHANNEL))
+    return isinstance(channel, discord.abc.Messageable)
 
 
-async def disable_message_components(msg: ipy.Message | None) -> ipy.Message | None:
+async def disable_message_components(
+    msg: discord.Message | None,
+) -> discord.Message | None:
     """
     Edits the given message to disable all components
 
     :param msg: The message to disable components for
     :return: The edited message, or None if the message was None
     """
-
-    if msg is None:
-        return None
-
-    if not msg.components:
+    if msg is None or not msg.components:
         return msg
 
-    return await msg.edit(
-        components=ipy.utils.misc_utils.disable_components(*msg.components)
-    )
+    view = discord.ui.View.from_message(msg, timeout=None)
+    for child in view.children:
+        if _is_disableable(child):
+            child.disabled = True
+    return await msg.edit(view=view)
 
 
 def get_discord_msg_links(content: str) -> Iterator[DiscordMesageLink]:

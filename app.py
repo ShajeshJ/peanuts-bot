@@ -60,7 +60,7 @@ def main():
     if CONFIG.HEALTH_PROBE:
         health_probe.start_background_server()
 
-    bot.start()
+    bot.run(CONFIG.BOT_TOKEN)
 
 
 if __name__ == "__main__":

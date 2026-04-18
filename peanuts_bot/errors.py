@@ -1,7 +1,8 @@
 import logging
 import traceback
 
-import interactions as ipy
+import discord
+from discord import app_commands
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.libraries.discord.admin import send_error_to_admin
@@ -16,24 +17,26 @@ class BotUsageError(Exception):
     ...
 
 
-@ipy.listen(disable_default_listeners=True)
-async def on_error(event: ipy.events.Error):
-    """
-    Fallback global error handler
-    """
-    if not isinstance(event.ctx, ipy.InteractionContext):
-        raise Exception(
-            f"did not get InteractionContext for {event.source}; instead got {type(event.ctx).__name__}"
-        ) from event.error
+async def handle_interaction_error(
+    interaction: discord.Interaction, error: Exception
+) -> None:
+    """Shared error handler for slash commands and View callbacks"""
+    cause = getattr(error, "__cause__", error)
 
-    if isinstance(event.error, BotUsageError):
-        await event.ctx.send(str(event.error), ephemeral=True)
+    async def _send(msg: str) -> None:
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
+
+    if isinstance(cause, BotUsageError):
+        await _send(str(cause))
         return
 
     try:
-        await event.ctx.send(SOMETHING_WRONG, ephemeral=True)
-        await send_error_to_admin(event.error, event.bot)
+        await _send(SOMETHING_WRONG)
+        await send_error_to_admin(cause, interaction.client)
     except Exception as e:
-        raise e from event.error
+        raise e from cause
 
-    raise event.error
+    raise cause

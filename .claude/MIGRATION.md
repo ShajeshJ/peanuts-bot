@@ -24,7 +24,7 @@ ssh pi@<pi-host> which ffmpeg
 ```
 If missing, install it first: `sudo apt install ffmpeg`
 
-**Answered:**  _(fill in when resolved)_
+**Answered:** FFmpeg is already installed on the Pi. No setup needed before Step 7.
 
 ---
 
@@ -38,7 +38,7 @@ Two options:
 
 **Action needed:** Decide approach before Step 8.
 
-**Answered:** _(fill in when resolved)_
+**Answered:** Option A — build a custom paginator `discord.ui.View` with prev/next buttons + select menu.
 
 ---
 
@@ -52,7 +52,7 @@ Options:
 
 **Action needed:** Decide approach (recommendation: use `guild.get_role()` with fallback log warning).
 
-**Answered:** _(fill in when resolved)_
+**Answered:** Use `guild.get_role(id)` (cache lookup). Safe given the bot uses all intents.
 
 ---
 
@@ -68,7 +68,7 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 
 **Action needed:** Decide whether to switch to BytesIO in Step 7, or keep the disk-file approach (simpler migration, lower risk). Also decide whether to fix the `.wav` → `.mp3` extension.
 
-**Answered:** _(fill in when resolved)_
+**Answered:** Keep disk-file approach for now. Fix the extension to `.mp3` (correctness). Add a TODO comment in `libraries/voice.py` to switch to BytesIO after migration is complete.
 
 ---
 
@@ -80,7 +80,7 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 
 **Action needed:** Confirm version before updating `pyproject.toml` in Step 1.
 
-**Answered:** _(fill in when resolved)_
+**Answered:** Pin to `2.7.1` (latest stable as of 2026-04-18, includes DynamicItem support).
 
 ---
 
@@ -88,7 +88,7 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 
 | Step | Status | Description |
 |---|---|---|
-| 1 | `[ ] pending` | Core infrastructure: dependencies + bot startup (no extensions) |
+| 1 | `[x] done` | Core infrastructure: dependencies + bot startup (no extensions) |
 | 2 | `[ ] pending` | `users.py` + `channels.py` (channel create only, no voice) |
 | 3 | `[ ] pending` | `rng.py` (slash commands + DynamicItem buttons) |
 | 4 | `[ ] pending` | `roles.py` (slash commands + persistent View dropdowns) |

@@ -1,8 +1,6 @@
 import logging
 from typing import NamedTuple
 
-import interactions as ipy
-
 from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG, MC_CONFIG
 
 logger = logging.getLogger(__name__)
@@ -11,9 +9,6 @@ logger = logging.getLogger(__name__)
 class ExtInfo(NamedTuple):
     ext_name: str
     module_path: str
-
-    def to_slash_command_choice(self) -> ipy.SlashCommandChoice:
-        return ipy.SlashCommandChoice(name=self.ext_name, value=self.module_path)
 
 
 ALL_EXTENSIONS: list[ExtInfo] = [
