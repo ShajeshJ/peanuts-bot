@@ -63,7 +63,7 @@ Each scenario includes: preconditions, action, and expected outcome. Organized b
 **R-5: Delete a non-joinable role**
 - Given: a role "Moderator" has permissions or is not mentionable
 - When: User runs `/role delete role:@Moderator`
-- Then: bot rejects with an error; role is not deleted
+- Then: bot rejects with "You cannot request to delete this role"; role is not deleted
 
 **R-6: Join — dropdown shows available roles**
 - Given: joinable roles "League" and "Chess" exist; User is not in either

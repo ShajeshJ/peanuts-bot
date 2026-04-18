@@ -14,7 +14,7 @@ class ExtInfo(NamedTuple):
 
 ALL_EXTENSIONS: list[ExtInfo] = [
     ExtInfo("Help", "peanuts_bot.extensions.help"),
-    ExtInfo("Role", "peanuts_bot.extensions.roles"),
+    ExtInfo("Role", "peanuts_bot.extensions.roles", migrated=True),
     ExtInfo("Channel", "peanuts_bot.extensions.channels", migrated=True),
     ExtInfo("Emoji", "peanuts_bot.extensions.emojis"),
     ExtInfo("RNG", "peanuts_bot.extensions.rng", migrated=True),
