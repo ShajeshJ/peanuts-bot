@@ -98,6 +98,13 @@ class MyExtension(ipy.Extension):
 - `matplotlib`, `mcstatus`, `gtts`, `python-dateutil` — feature libs (keep)
 - `discord-py-interactions` v5.16.0rc3 — **replace with `discord.py`**
 
+## Standing Session Rules
+
+After making any code additions or changes:
+1. **Update context docs** — reflect the change in whichever `.claude/` file covers the affected area (or `CLAUDE.md` itself if it's always-needed info)
+2. **Check user stories** — open `.claude/user_stories.md`; update existing stories or add new ones if the change affects bot behaviour
+3. **Lint & format** — run `mypy` and `black` on every changed file before considering the task done
+
 ## Style Guide
 See `.claude/STYLE_GUIDE.md` for full coding conventions. Key rules:
 - Strong typing everywhere; use `X | Y` unions, `Annotated[T, ...]` for slash options; avoid `cast()`
