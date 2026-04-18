@@ -106,8 +106,8 @@ Migration-relevant detail not captured:
 
 ## Migration Progress
 
-### [ ] Document the discord.py migration plan
-Once migration begins, track which files have been migrated vs. still using interactions-py. Add a `MIGRATION.md` or a section in `CLAUDE.md` with per-file status.
+### [x] Document the discord.py migration plan
+Migration plan written to `.claude/MIGRATION.md`. Includes 10 ordered steps, open questions (OQ-1 through OQ-5), per-step file lists, implementation notes, user stories to verify, and a full ipy→discord.py API quick-reference table.
 
 ### [ ] Update CLAUDE.md extension pattern section
 After the migration is complete, update the extension pattern examples in `CLAUDE.md` from `ipy.Extension` to `commands.Cog`.

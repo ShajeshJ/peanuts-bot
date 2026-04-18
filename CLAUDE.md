@@ -132,5 +132,7 @@ See `.claude/TODO.md` for the incremental list of codebase sections not yet docu
 | `.claude/libraries_stocks_api.md` | Working with the stock data abstraction layer or Alpha Vantage provider |
 | `.claude/libraries_image.md` | Working with image type detection, metadata fetching, or base64 decoding |
 | `.claude/deployment.md` | Deploying the bot, managing the Pi service, or understanding CI/CD |
+| `.claude/user_stories.md` | Manual validation, writing tests, or verifying feature behaviour |
 | `.claude/libraries_utils.md` | Working with dice parsing, `Annotated` introspection, or iterable counting helpers |
 | `.claude/extensions.md` | Working on any extension (help, roles, channels, users, messages, emojis, rng, stocks, minecraft, local) |
+| `.claude/MIGRATION.md` | Executing or tracking the interactions-py → discord.py migration (step status, open questions, ipy→dpy API map) |
