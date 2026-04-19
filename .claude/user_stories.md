@@ -14,7 +14,7 @@ Each scenario includes: preconditions, action, and expected outcome. Organized b
 **H-1: User views help**
 - Given: bot is running with extensions loaded
 - When: User runs `/help`
-- Then: a paginated embed dialog appears with one page per slash command and context menu command; admin-only commands are not shown; a select menu allows jumping between pages; the dialog times out after 5 minutes
+- Then: an ephemeral paginated embed dialog appears (visible only to the invoker) with one page per slash command and context menu command; admin-only commands are not shown; a select menu allows jumping between pages; the dialog times out after 5 minutes
 
 **H-2: Admin views help**
 - Given: invoker has Administrator permission
@@ -32,9 +32,8 @@ Each scenario includes: preconditions, action, and expected outcome. Organized b
 - Then: each parameter is listed as a field showing its name, type, and whether it is optional
 
 **H-5: Help dialog is user-scoped**
-- Given: User A opened a `/help` dialog
-- When: User B clicks the paginator buttons on that dialog
-- Then: bot responds ephemerally telling User B the dialog isn't theirs, and instructs them to use `/help` themselves
+- Given: User A runs `/help`
+- Then: the help dialog is sent as an ephemeral message — only User A can see it; no other user can view or interact with it
 
 ---
 

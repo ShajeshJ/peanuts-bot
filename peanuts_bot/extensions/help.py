@@ -1,49 +1,56 @@
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
-import interactions as ipy
-from interactions.ext.paginators import Paginator
+
+import discord
+from discord import app_commands
+from discord.ext import commands
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.extensions.internals.protocols import HelpCmdProto
-from peanuts_bot.libraries.types_ext import get_annotated_subtype
 
-__all__ = ["HelpExtensions"]
+__all__ = ["HelpExtension"]
 
 logger = logging.getLogger(__name__)
 
 
-class HelpExtensions(ipy.Extension):
-    @staticmethod
-    def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.MIDNIGHTBLUE
+class HelpExtension(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
 
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
-    async def help(self, ctx: ipy.SlashContext):
+    @staticmethod
+    def get_help_color() -> discord.Color:
+        return discord.Color.from_str("#2C3E50")
+
+    @app_commands.command(name="help")
+    async def help(self, interaction: discord.Interaction) -> None:
         """See help information for all commands"""
 
-        if not isinstance(ctx.author, ipy.Member):
+        if not isinstance(interaction.user, discord.Member):
             raise BotUsageError("this command is only available in guilds")
 
-        skip_admin_help = not ctx.author.has_permission(ipy.Permissions.ADMINISTRATOR)
+        skip_admin_help = not interaction.user.guild_permissions.administrator
 
-        help_page_gen = (
-            HelpPage.from_command(c, ignore_admin=skip_admin_help)
-            for c in self.bot.application_commands
-        )
-        pages = [page for page in help_page_gen if page is not None]
+        guild = discord.Object(CONFIG.GUILD_ID)
+        all_commands = self.bot.tree.get_commands(guild=guild)
+
+        pages: list[HelpPage] = []
+        for cmd in all_commands:
+            pages.extend(_pages_for_tree_command(cmd, ignore_admin=skip_admin_help))
         pages.sort(key=lambda p: p.sort_order)
 
-        help_dialog = Paginator.create_from_embeds(
-            self.bot, *(p.to_embed() for p in pages), timeout=300
-        )
-        help_dialog.show_select_menu = True
-        help_dialog.wrong_user_message = (
-            "This help dialog isn't for you. Use `/help` for your own."
-        )
+        if not pages:
+            await interaction.response.send_message(
+                "No commands available.", ephemeral=True
+            )
+            return
 
-        await help_dialog.send(ctx)
+        embeds = [p.to_embed() for p in pages]
+        view = HelpPaginator(embeds)
+        await interaction.response.send_message(
+            embed=embeds[0], view=view, ephemeral=True
+        )
 
 
 class SortOrder(int, Enum):
@@ -57,99 +64,141 @@ class HelpPage:
     title: str
     desc: str
     args: list[tuple[str, str]] = field(default_factory=list)
-    color: ipy.Color = field(default_factory=ipy.Color)
+    color: discord.Color = field(default_factory=lambda: discord.Color(0))
     sort_order: SortOrder = SortOrder.SLASH_CMD
 
-    def to_embed(self) -> ipy.Embed:
-        embed = ipy.Embed(title=self.title, description=self.desc, color=self.color)
+    def to_embed(self) -> discord.Embed:
+        embed = discord.Embed(title=self.title, description=self.desc, color=self.color)
         for field_name, field_value in self.args:
             embed.add_field(name=field_name, value=field_value)
         return embed
 
-    @staticmethod
-    def from_command(
-        c: ipy.InteractionCommand, /, *, ignore_admin=True
-    ) -> "HelpPage | None":
-        color = (
-            c.extension.__class__.get_help_color()
-            if c.extension and isinstance(c.extension, HelpCmdProto)
-            else ipy.Color()
+
+class HelpPaginator(discord.ui.View):
+    def __init__(self, pages: list[discord.Embed], *, timeout: float = 300) -> None:
+        super().__init__(timeout=timeout)
+        self.pages = pages
+        self.current = 0
+        self._update_buttons()
+
+    def _update_buttons(self) -> None:
+        self.prev_btn.disabled = self.current == 0
+        self.next_btn.disabled = self.current == len(self.pages) - 1
+        select: discord.ui.Item = self.page_select
+        if isinstance(select, discord.ui.Select):
+            select.options = [
+                discord.SelectOption(
+                    label=(p.title or f"Page {i + 1}")[:100],
+                    value=str(i),
+                    default=(i == self.current),
+                )
+                for i, p in enumerate(self.pages)
+            ]
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+    async def prev_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        self.current = max(0, self.current - 1)
+        self._update_buttons()
+        await interaction.response.edit_message(
+            embed=self.pages[self.current], view=self
         )
 
-        if isinstance(c, ipy.ContextMenu):
-            return HelpPage(
-                title=f"{c.resolved_name}",
-                desc=f"Available in right click context menus on {c.type.name.lower()}s",
-                color=color,
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
+    async def next_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        self.current = min(len(self.pages) - 1, self.current + 1)
+        self._update_buttons()
+        await interaction.response.edit_message(
+            embed=self.pages[self.current], view=self
+        )
+
+    @discord.ui.select(placeholder="Jump to a command...")
+    async def page_select(
+        self, interaction: discord.Interaction, select: discord.ui.Select
+    ) -> None:
+        self.current = int(select.values[0])
+        self._update_buttons()
+        await interaction.response.edit_message(
+            embed=self.pages[self.current], view=self
+        )
+
+
+def _get_color(
+    cmd: app_commands.Command | app_commands.Group | app_commands.ContextMenu,
+) -> discord.Color:
+    binding = getattr(cmd, "binding", None) or getattr(
+        getattr(cmd, "callback", None), "__self__", None
+    )
+    if binding and isinstance(binding, HelpCmdProto):
+        return binding.get_help_color()
+    return discord.Color(0)
+
+
+def _requires_admin(
+    cmd: app_commands.Command | app_commands.ContextMenu,
+) -> bool:
+    perms = getattr(cmd, "default_permissions", None)
+    if (
+        perms is None
+        and isinstance(cmd, app_commands.Command)
+        and cmd.parent is not None
+    ):
+        perms = cmd.parent.default_permissions
+    return perms is not None and bool(perms.administrator)
+
+
+def _pages_for_tree_command(
+    cmd: app_commands.Command | app_commands.Group | app_commands.ContextMenu,
+    *,
+    ignore_admin: bool,
+) -> list[HelpPage]:
+    if isinstance(cmd, app_commands.Group):
+        pages: list[HelpPage] = []
+        for sub in cmd.commands:
+            pages.extend(_pages_for_tree_command(sub, ignore_admin=ignore_admin))
+        return pages
+
+    if isinstance(cmd, app_commands.ContextMenu):
+        type_label = (
+            "messages" if cmd.type == discord.AppCommandType.message else "users"
+        )
+        return [
+            HelpPage(
+                title=cmd.name,
+                desc=f"Available in right click context menus on {type_label}",
+                color=_get_color(cmd),
                 sort_order=SortOrder.CONTEXT_MENU,
             )
+        ]
 
-        elif isinstance(c, ipy.SlashCommand):
-            is_admin_cmd = _requires_admin(c)
-            if is_admin_cmd and ignore_admin:
-                return None
+    is_admin_cmd = _requires_admin(cmd)
+    if is_admin_cmd and ignore_admin:
+        return []
 
-            desc = _get_slash_cmd_desc(c)
-            if desc is None:
-                return None
+    cmd_args: list[tuple[str, str]] = []
+    for param in cmd.parameters:
+        type_name = param.type.name.lower()
+        if param.required:
+            field_name = f"{param.name} (_{type_name}_)"
+        else:
+            field_name = f"{param.name} (_{type_name}_, optional)"
+        cmd_args.append((field_name, param.description))
 
-            cmd_args: list[tuple[str, str]] = []
-
-            for param_name, param_metadata in c.parameters.items():
-                opt = _get_cmd_option(param_metadata)
-                if opt is None:
-                    logger.warn(f"missing param annotations for {c.resolved_name}")
-                    continue
-
-                if not isinstance(opt.type, ipy.OptionType):
-                    logger.warn(f"missing param type info for {c.resolved_name}")
-                    continue
-
-                field_name = f"{param_name} (_{opt.type.name.lower()}_)"
-                if not opt.required:
-                    field_name = f"{field_name[:-1]}, optional)"
-
-                cmd_args.append((field_name, str(opt.description)))
-
-            return HelpPage(
-                title=f"/{c.resolved_name}",
-                desc=f"```{desc}```",
-                args=cmd_args,
-                color=color,
-                sort_order=(
-                    SortOrder.SLASH_CMD
-                    if not is_admin_cmd
-                    else SortOrder.SLASH_ADMIN_CMD
-                ),
-            )
-
-        raise ValueError(f"unknown command {c.resolved_name}")
+    return [
+        HelpPage(
+            title=f"/{cmd.qualified_name}",
+            desc=f"```{cmd.description}```",
+            args=cmd_args,
+            color=_get_color(cmd),
+            sort_order=SortOrder.SLASH_CMD
+            if not is_admin_cmd
+            else SortOrder.SLASH_ADMIN_CMD,
+        )
+    ]
 
 
-def _get_slash_cmd_desc(c: ipy.SlashCommand) -> str | None:
-    default_desc = "No Description Set"
-
-    if str(c.description) != default_desc:
-        return str(c.description)
-    elif str(c.sub_cmd_description) != default_desc:
-        return str(c.sub_cmd_description)
-    else:
-        return None  # a parent command with no use
-
-
-def _requires_admin(c: ipy.InteractionCommand) -> bool:
-    return bool(
-        c.default_member_permissions is not None
-        and c.default_member_permissions & ipy.Permissions.ADMINISTRATOR
-    )
-
-
-def _get_cmd_option(p: ipy.SlashCommandParameter) -> ipy.SlashCommandOption | None:
-    try:
-        _, metadata = get_annotated_subtype(p.type)
-        if isinstance(metadata[0], ipy.SlashCommandOption):
-            return metadata[0]
-    except (IndexError, TypeError):
-        pass
-
-    return None
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(HelpExtension(bot))

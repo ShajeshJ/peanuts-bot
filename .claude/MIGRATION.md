@@ -95,9 +95,10 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 | 5 | `[x] done` | `messages.py` (listeners + league ping flow) |
 | 6 | `[x] done` | `emojis.py` (modals + context menu + persistent approval View) |
 | 7 | `[x] done` | Voice infrastructure (`libraries/discord/voice.py` + voice events) |
-| 8 | `[ ] pending` | `help.py` (custom paginator + discord.py tree introspection) |
+| 8 | `[x] done` | `help.py` (custom paginator + discord.py tree introspection) |
 | 9 | `[ ] pending` | `stocks.py`, `minecraft.py`, `local.py` |
-| 10 | `[ ] pending` | Remove `discord-py-interactions` from all code and dependencies |
+| 10 | `[ ] pending` | Consolidate group commands into Cog methods (undo module-level function pattern) |
+| 11 | `[ ] pending` | Remove `discord-py-interactions` from all code and dependencies |
 
 Mark each step `[x] done` after you have verified the user stories and committed.
 
@@ -848,7 +849,61 @@ async def ticker_autocomplete(self, interaction: discord.Interaction, current: s
 
 ---
 
-## Step 10 — Remove interactions-py
+## Step 10 — Consolidate group commands into Cog methods
+
+**Goal:** Move all module-level slash command functions into their respective Cog classes as proper instance methods. During the initial migration, commands belonging to `app_commands.Group`s were left as module-level plain functions and registered separately from the Cog. This was unnecessary — discord.py Cogs fully support group commands as instance methods. The module-level pattern breaks `cmd.binding` (which is only set on Cog methods), forcing workarounds like the `module_colors` fallback in `help.py`.
+
+**After this step:** `help.py` can drop the `module_colors` fallback — `cmd.binding` will be set for every command, and `_get_color` can rely solely on `binding`.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `peanuts_bot/extensions/roles.py` | Move `_role_group` and `@_role_group.command()` functions into `RoleExtension` as Cog methods |
+| `peanuts_bot/extensions/channels.py` | Move `_channel_group` and `@_channel_group.command()` function into `ChannelExtension` as a Cog method |
+| `peanuts_bot/extensions/messages.py` | Move `_messages_group`, `_speak`, `_quote` and their handler functions into `MessageExtension` as Cog methods |
+| `peanuts_bot/extensions/help.py` | Remove `module_colors` dict and fallback in `_get_color`; rely solely on `cmd.binding` |
+
+### Key implementation pattern
+
+The correct discord.py pattern for group commands inside a Cog is to define the group as a class variable and the commands as instance methods:
+
+```python
+class RoleExtension(commands.Cog):
+    _role_group = app_commands.Group(name="role", description="Role management commands")
+
+    @staticmethod
+    def get_help_color() -> discord.Color:
+        return discord.Color.from_str("#E74C3C")
+
+    @_role_group.command(name="create")
+    async def role_create(self, interaction: discord.Interaction, name: str) -> None:
+        ...
+```
+
+The group is registered on the tree in `setup()` by accessing it from the Cog class (not instance):
+```python
+async def setup(bot: commands.Bot) -> None:
+    cog = RoleExtension()
+    bot.tree.add_command(RoleExtension._role_group)
+    await bot.add_cog(cog)
+```
+
+Note: do NOT assign `_role_group` as an instance attribute in `__init__` — it must stay a class variable so the command decorators resolve correctly.
+
+### User stories to verify
+Re-run the full story suite to confirm nothing regressed:
+- R-1 through R-13 (roles)
+- C-1 through C-3 (channel create)
+- SP-1, MD-1, Q-1 (messages)
+- H-1 through H-5 (help — verify colours are correct without the fallback)
+
+### Commit message
+`refactor: consolidate group commands into Cog methods`
+
+---
+
+## Step 11 — Remove interactions-py
 
 **Goal:** Delete all remaining `interactions as ipy` imports and remove the library from dependencies. Any ipy reference that survives to this step is a bug.
 
