@@ -27,12 +27,6 @@ _LEAGUE_PING_BUTTON = f"{_LEAGUE_CHECK}_ping"
 
 _MENTION_REGEX = re.compile(r"<@!?\d+>")
 
-_messages_group = app_commands.Group(
-    name="messages",
-    description="Message management commands",
-    default_permissions=discord.Permissions(administrator=True),
-)
-
 
 def _get_image_url(obj: discord.Attachment | discord.Embed) -> str | None:
     url = obj.url
@@ -297,6 +291,12 @@ class _LeagueDropdownView(discord.ui.View):
 
 
 class MessageExtension(commands.Cog):
+    _messages_group = app_commands.Group(
+        name="messages",
+        description="Message management commands",
+        default_permissions=discord.Permissions(administrator=True),
+    )
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
@@ -361,47 +361,45 @@ class MessageExtension(commands.Cog):
 
         await msg.reply(content=content, view=_LeagueDropdownView())
 
+    @app_commands.command(name="speak")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(message="The message for the bot to repeat")
+    async def speak(self, interaction: discord.Interaction, message: str) -> None:
+        """[ADMIN-ONLY] Make the bot say something"""
+        await interaction.response.send_message(message)
 
-@app_commands.command(name="speak")
-@app_commands.default_permissions(administrator=True)
-@app_commands.describe(message="The message for the bot to repeat")
-async def _speak(interaction: discord.Interaction, message: str) -> None:
-    """[ADMIN-ONLY] Make the bot say something"""
-    await interaction.response.send_message(message)
-
-
-@_messages_group.command(name="delete")
-@app_commands.describe(
-    amount="**Caution against > 100**. The number of messages to delete."
-)
-async def _messages_delete(interaction: discord.Interaction, amount: int = 1) -> None:
-    """[ADMIN-ONLY] Deletes the last X messages in the channel"""
-    channel = interaction.channel
-    if not isinstance(channel, discord.TextChannel | discord.Thread):
-        raise BotUsageError("This command can only be used in a text channel")
-
-    await interaction.response.defer(ephemeral=True)
-    deleted = await channel.purge(limit=amount)
-    await interaction.followup.send(
-        f"Deleted {len(deleted)} message(s)", ephemeral=True
+    @_messages_group.command(name="delete")
+    @app_commands.describe(
+        amount="**Caution against > 100**. The number of messages to delete."
     )
+    async def messages_delete(
+        self, interaction: discord.Interaction, amount: int = 1
+    ) -> None:
+        """[ADMIN-ONLY] Deletes the last X messages in the channel"""
+        channel = interaction.channel
+        if not isinstance(channel, discord.TextChannel | discord.Thread):
+            raise BotUsageError("This command can only be used in a text channel")
 
+        await interaction.response.defer(ephemeral=True)
+        deleted = await channel.purge(limit=amount)
+        await interaction.followup.send(
+            f"Deleted {len(deleted)} message(s)", ephemeral=True
+        )
 
-@app_commands.command(name="quote")
-@app_commands.describe(link="The link to the message to quote")
-async def _quote(interaction: discord.Interaction, link: str) -> None:
-    """Quote a message"""
-    parsed_link = parse_discord_msg_link(link)
-    if not parsed_link:
-        raise BotUsageError("Must provide a discord message link")
+    @app_commands.command(name="quote")
+    @app_commands.describe(link="The link to the message to quote")
+    async def quote(self, interaction: discord.Interaction, link: str) -> None:
+        """Quote a message"""
+        parsed_link = parse_discord_msg_link(link)
+        if not parsed_link:
+            raise BotUsageError("Must provide a discord message link")
 
-    message = await _get_discord_msg(parsed_link, interaction.client)
-    await interaction.response.send_message(embed=await _create_quote_embed(message))
+        message = await _get_discord_msg(parsed_link, interaction.client)
+        await interaction.response.send_message(
+            embed=await _create_quote_embed(message)
+        )
 
 
 async def setup(bot: commands.Bot) -> None:
-    bot.tree.add_command(_speak)
-    bot.tree.add_command(_messages_group)
-    bot.tree.add_command(_quote)
     bot.add_view(_LeagueDropdownView())
     await bot.add_cog(MessageExtension(bot))

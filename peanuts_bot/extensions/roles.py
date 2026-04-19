@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 ROLE_JOIN_ID = "role_join"
 ROLE_LEAVE_ID = "role_leave"
 
-_role_group = app_commands.Group(name="role", description="Role management commands")
-
 
 class RoleOptionTuple(NamedTuple):
     id: int
@@ -184,90 +182,91 @@ class RoleLeaveView(discord.ui.View):
         await handle_interaction_error(interaction, error)
 
 
-@_role_group.command(name="create")
-@app_commands.describe(name="Name of the new role")
-async def _role_create(interaction: discord.Interaction, name: str) -> None:
-    """Create a new mention role that others can join"""
-    if not interaction.guild:
-        raise BotUsageError("This command can only be used in a server")
-
-    if any(r.name == name for r in interaction.guild.roles):
-        raise BotUsageError(f"The role {name} already exists")
-
-    role = await interaction.guild.create_role(
-        name=name,
-        mentionable=True,
-        reason=f"Created by {interaction.user.display_name} via bot commands",
-        permissions=discord.Permissions.none(),
-    )
-    await interaction.response.send_message(f"Created new role {role.mention}")
-
-
-@_role_group.command(name="delete")
-@app_commands.describe(role="The role to be deleted")
-async def _role_delete(interaction: discord.Interaction, role: discord.Role) -> None:
-    """Request to delete a mentionable role"""
-    if not interaction.guild or not isinstance(interaction.user, discord.Member):
-        raise BotUsageError("This command can only be used in a server")
-
-    if not _is_joinable(role):
-        raise BotUsageError("You cannot request to delete this role")
-
-    if any(m for m in role.members if m.id != interaction.user.id):
-        raise BotUsageError(f"There are 1 or more people still in '{role.name}'")
-
-    await role.delete(
-        reason=f"Deleted by {interaction.user.display_name} via bot commands"
-    )
-    await interaction.response.send_message(f"Deleted role '{role.name}'")
-
-
-@_role_group.command(name="join")
-async def _role_join(interaction: discord.Interaction) -> None:
-    """Add yourself to a mention role"""
-    if not interaction.guild or not isinstance(interaction.user, discord.Member):
-        raise BotUsageError("This command can only be used in a server")
-
-    member = interaction.user
-    options = [
-        discord.SelectOption(label=role.name, value=_get_role_option_value(role))
-        for role in interaction.guild.roles
-        if _is_joinable(role) and role not in member.roles
-    ]
-    if not options:
-        raise BotUsageError("There are no new roles you can join")
-
-    view = RoleJoinView(options=options)
-    await interaction.response.send_message(view=view, ephemeral=True)
-
-
-@_role_group.command(name="leave")
-async def _role_leave(interaction: discord.Interaction) -> None:
-    """Remove yourself from a mention role"""
-    if not interaction.guild or not isinstance(interaction.user, discord.Member):
-        raise BotUsageError("This command can only be used in a server")
-
-    member = interaction.user
-    options = [
-        discord.SelectOption(label=role.name, value=_get_role_option_value(role))
-        for role in interaction.guild.roles
-        if _is_joinable(role) and role in member.roles
-    ]
-    if not options:
-        raise BotUsageError("There are no roles you can leave")
-
-    view = RoleLeaveView(options=options)
-    await interaction.response.send_message(view=view, ephemeral=True)
-
-
 class RoleExtension(commands.Cog):
+    _role_group = app_commands.Group(
+        name="role", description="Role management commands"
+    )
+
     @staticmethod
     def get_help_color() -> discord.Color:
         return discord.Color.from_str("#E74C3C")
 
+    @_role_group.command(name="create")
+    @app_commands.describe(name="Name of the new role")
+    async def role_create(self, interaction: discord.Interaction, name: str) -> None:
+        """Create a new mention role that others can join"""
+        if not interaction.guild:
+            raise BotUsageError("This command can only be used in a server")
+
+        if any(r.name == name for r in interaction.guild.roles):
+            raise BotUsageError(f"The role {name} already exists")
+
+        role = await interaction.guild.create_role(
+            name=name,
+            mentionable=True,
+            reason=f"Created by {interaction.user.display_name} via bot commands",
+            permissions=discord.Permissions.none(),
+        )
+        await interaction.response.send_message(f"Created new role {role.mention}")
+
+    @_role_group.command(name="delete")
+    @app_commands.describe(role="The role to be deleted")
+    async def role_delete(
+        self, interaction: discord.Interaction, role: discord.Role
+    ) -> None:
+        """Request to delete a mentionable role"""
+        if not interaction.guild or not isinstance(interaction.user, discord.Member):
+            raise BotUsageError("This command can only be used in a server")
+
+        if not _is_joinable(role):
+            raise BotUsageError("You cannot request to delete this role")
+
+        if any(m for m in role.members if m.id != interaction.user.id):
+            raise BotUsageError(f"There are 1 or more people still in '{role.name}'")
+
+        await role.delete(
+            reason=f"Deleted by {interaction.user.display_name} via bot commands"
+        )
+        await interaction.response.send_message(f"Deleted role '{role.name}'")
+
+    @_role_group.command(name="join")
+    async def role_join(self, interaction: discord.Interaction) -> None:
+        """Add yourself to a mention role"""
+        if not interaction.guild or not isinstance(interaction.user, discord.Member):
+            raise BotUsageError("This command can only be used in a server")
+
+        member = interaction.user
+        options = [
+            discord.SelectOption(label=role.name, value=_get_role_option_value(role))
+            for role in interaction.guild.roles
+            if _is_joinable(role) and role not in member.roles
+        ]
+        if not options:
+            raise BotUsageError("There are no new roles you can join")
+
+        view = RoleJoinView(options=options)
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+    @_role_group.command(name="leave")
+    async def role_leave(self, interaction: discord.Interaction) -> None:
+        """Remove yourself from a mention role"""
+        if not interaction.guild or not isinstance(interaction.user, discord.Member):
+            raise BotUsageError("This command can only be used in a server")
+
+        member = interaction.user
+        options = [
+            discord.SelectOption(label=role.name, value=_get_role_option_value(role))
+            for role in interaction.guild.roles
+            if _is_joinable(role) and role in member.roles
+        ]
+        if not options:
+            raise BotUsageError("There are no roles you can leave")
+
+        view = RoleLeaveView(options=options)
+        await interaction.response.send_message(view=view, ephemeral=True)
+
 
 async def setup(bot: commands.Bot) -> None:
-    bot.tree.add_command(_role_group)
     bot.add_view(RoleJoinView())
     bot.add_view(RoleLeaveView())
     await bot.add_cog(RoleExtension())

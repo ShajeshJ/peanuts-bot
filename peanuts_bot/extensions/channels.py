@@ -18,44 +18,6 @@ __all__ = ["ChannelExtension"]
 
 logger = logging.getLogger(__name__)
 
-_channel_group = app_commands.Group(
-    name="channel", description="Channel management commands"
-)
-
-
-@_channel_group.command(name="create")
-@app_commands.describe(
-    name="The name of the new channel",
-    category="Category to nest the channel under",
-)
-async def _channel_create(
-    interaction: discord.Interaction,
-    name: str,
-    category: Optional[discord.CategoryChannel] = None,
-) -> None:
-    """Create a new text channel"""
-
-    if not interaction.guild:
-        raise BotUsageError("This command can only be used in a server")
-
-    existing_channel = next(
-        (
-            c
-            for c in await interaction.guild.fetch_channels()
-            if not isinstance(c, discord.CategoryChannel) and c.name == name
-        ),
-        None,
-    )
-    if existing_channel:
-        raise BotUsageError(f"{existing_channel.mention} already exists")
-
-    channel = await interaction.guild.create_text_channel(
-        name=name,
-        category=category,
-        reason=f"Created by {interaction.user.display_name} via bot commands",
-    )
-    await interaction.response.send_message(f"Created new channel {channel.mention}")
-
 
 def _get_bot_voice_channel(
     guild: discord.Guild,
@@ -69,12 +31,51 @@ def _get_bot_voice_channel(
 
 
 class ChannelExtension(commands.Cog):
+    _channel_group = app_commands.Group(
+        name="channel", description="Channel management commands"
+    )
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     @staticmethod
     def get_help_color() -> discord.Color:
         return discord.Color.from_str("#3498DB")
+
+    @_channel_group.command(name="create")
+    @app_commands.describe(
+        name="The name of the new channel",
+        category="Category to nest the channel under",
+    )
+    async def channel_create(
+        self,
+        interaction: discord.Interaction,
+        name: str,
+        category: Optional[discord.CategoryChannel] = None,
+    ) -> None:
+        """Create a new text channel"""
+        if not interaction.guild:
+            raise BotUsageError("This command can only be used in a server")
+
+        existing_channel = next(
+            (
+                c
+                for c in await interaction.guild.fetch_channels()
+                if not isinstance(c, discord.CategoryChannel) and c.name == name
+            ),
+            None,
+        )
+        if existing_channel:
+            raise BotUsageError(f"{existing_channel.mention} already exists")
+
+        channel = await interaction.guild.create_text_channel(
+            name=name,
+            category=category,
+            reason=f"Created by {interaction.user.display_name} via bot commands",
+        )
+        await interaction.response.send_message(
+            f"Created new channel {channel.mention}"
+        )
 
     @commands.Cog.listener("on_voice_state_update")
     async def on_voice_state_update(
@@ -139,12 +140,13 @@ class ChannelExtension(commands.Cog):
                 # follow user to their destination (not most-active search)
                 await vc.move_to(after.channel)
                 # announce the moving user only if others were already in destination
-                other_users = [uid for uid in get_active_user_ids(vc) if uid != member.id]
+                other_users = [
+                    uid for uid in get_active_user_ids(vc) if uid != member.id
+                ]
                 if other_users:
                     file = generate_tts_audio(f"{member.display_name} has joined.")
                     BotVoice().queue_audio(file, build_cleanup_callback(file))
 
 
 async def setup(bot: commands.Bot) -> None:
-    bot.tree.add_command(_channel_group)
     await bot.add_cog(ChannelExtension(bot))
