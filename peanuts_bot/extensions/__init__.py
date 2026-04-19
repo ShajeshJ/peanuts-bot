@@ -19,7 +19,7 @@ ALL_EXTENSIONS: list[ExtInfo] = [
     ExtInfo("Emoji", "peanuts_bot.extensions.emojis"),
     ExtInfo("RNG", "peanuts_bot.extensions.rng", migrated=True),
     ExtInfo("User", "peanuts_bot.extensions.users", migrated=True),
-    ExtInfo("Message", "peanuts_bot.extensions.messages"),
+    ExtInfo("Message", "peanuts_bot.extensions.messages", migrated=True),
 ]
 
 try:

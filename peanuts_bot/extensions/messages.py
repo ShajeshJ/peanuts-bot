@@ -1,13 +1,14 @@
 from enum import Enum, auto
-from functools import partial
 import logging
 import re
-from typing import Annotated, Literal
-import interactions as ipy
-import interactions.client.utils.misc_utils as ipy_misc_utils
+from typing import Literal
+
+import discord
+from discord import app_commands
+from discord.ext import commands
 
 from peanuts_bot.config import CONFIG
-from peanuts_bot.errors import BotUsageError
+from peanuts_bot.errors import BotUsageError, handle_interaction_error
 from peanuts_bot.libraries.discord.messaging import (
     BAD_TWITTER_LINKS,
     DiscordMesageLink,
@@ -15,16 +16,105 @@ from peanuts_bot.libraries.discord.messaging import (
     is_messagable,
     parse_discord_msg_link,
 )
-from peanuts_bot.libraries.image import get_image_url
 
 __all__ = ["MessageExtension"]
 
 logger = logging.getLogger(__name__)
 
-
 _LEAGUE_CHECK = "league_check"
 _LEAGUE_DROPDOWN = f"{_LEAGUE_CHECK}_dropdown"
 _LEAGUE_PING_BUTTON = f"{_LEAGUE_CHECK}_ping"
+
+_MENTION_REGEX = re.compile(r"<@!?\d+>")
+
+_messages_group = app_commands.Group(
+    name="messages",
+    description="Message management commands",
+    default_permissions=discord.Permissions(administrator=True),
+)
+
+
+def _get_image_url(obj: discord.Attachment | discord.Embed) -> str | None:
+    url = obj.url
+    if not url:
+        return None
+    if any(
+        url.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp")
+    ):
+        return url
+    if isinstance(obj, discord.Attachment):
+        return (
+            url if obj.content_type and obj.content_type.startswith("image/") else None
+        )
+    return url if obj.type == "image" else None
+
+
+async def _create_quote_embed(msg: discord.Message) -> discord.Embed:
+    embed = discord.Embed()
+
+    avatar_url = (
+        msg.author.avatar.url if msg.author.avatar else msg.author.default_avatar.url
+    )
+    embed.set_author(name=msg.author.display_name, icon_url=avatar_url)
+
+    media: list[discord.Attachment | discord.Embed] = [*msg.attachments, *msg.embeds]
+    image_url = next((url for obj in media if (url := _get_image_url(obj))), None)
+    if image_url:
+        embed.set_image(url=image_url)
+
+    embed.description = msg.content
+    embed.description += "\n\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\n"
+    embed.description += f"[**View Original**]({msg.jump_url})"
+
+    channel_name = getattr(msg.channel, "name", str(msg.channel.id))
+    embed.set_footer(text=f"in #{channel_name}")
+    embed.timestamp = msg.edited_at or msg.created_at
+
+    return embed
+
+
+async def _get_discord_msg(
+    link: DiscordMesageLink, client: discord.Client
+) -> discord.Message:
+    if link.guild_id != CONFIG.GUILD_ID:
+        raise BotUsageError("Cannot quote messages from other servers")
+
+    ch = await client.fetch_channel(link.channel_id)
+    if not is_messagable(ch):
+        raise BotUsageError("Message could not be found")
+
+    return await ch.fetch_message(link.message_id)
+
+
+async def _league_ping_players(
+    gamemode: Literal["Aram", "Ranked", "League"],
+    bot_selection_msg: discord.Message,
+    ignore: set[int],
+) -> None:
+    ignore.add(_LeagueOptions.NO.value)
+    rows_to_notify = [
+        r
+        for i, r in enumerate(bot_selection_msg.content.split("\n"))
+        if i not in ignore
+    ]
+
+    potential_mentions = " ".join(rows_to_notify).split(" ")
+    mentions: set[str] = set()
+
+    ref = bot_selection_msg.reference
+    if ref and isinstance(ref.resolved, discord.Message):
+        mentions.add(ref.resolved.author.mention)
+
+    for m in potential_mentions:
+        if _MENTION_REGEX.search(m):
+            mentions.add(m)
+
+    if not mentions:
+        return
+
+    await bot_selection_msg.reply(
+        content=f"Gathering for {gamemode} {' '.join(mentions)}"
+    )
 
 
 class _LeagueOptions(int, Enum):
@@ -36,138 +126,210 @@ class _LeagueOptions(int, Enum):
     NO = auto()
 
     @classmethod
-    def get_dropdown_options(cls):
+    def get_dropdown_options(cls) -> list[discord.SelectOption]:
         return [
-            ipy.StringSelectOption(
-                label="I'm down", value=str(cls.YES.value), emoji=":white_check_mark:"
+            discord.SelectOption(
+                label="I'm down", value=str(cls.YES.value), emoji="✅"
             ),
-            ipy.StringSelectOption(
-                label="Aram only",
-                value=str(cls.ARAM.value),
-                emoji=":arrow_upper_right:",
+            discord.SelectOption(
+                label="Aram only", value=str(cls.ARAM.value), emoji="↗️"
             ),
-            ipy.StringSelectOption(
-                label="Ranked only", value=str(cls.RANKED.value), emoji=":ladder:"
+            discord.SelectOption(
+                label="Ranked only", value=str(cls.RANKED.value), emoji="🪜"
             ),
-            ipy.StringSelectOption(
-                label="If penta", value=str(cls.PENTA.value), emoji=":five:"
+            discord.SelectOption(
+                label="If penta", value=str(cls.PENTA.value), emoji="5️⃣"
             ),
-            ipy.StringSelectOption(
-                label="Later", value=str(cls.LATER.value), emoji=":clock830:"
-            ),
-            ipy.StringSelectOption(label="Nah", value=str(cls.NO.value), emoji=":x:"),
+            discord.SelectOption(label="Later", value=str(cls.LATER.value), emoji="🕣"),
+            discord.SelectOption(label="Nah", value=str(cls.NO.value), emoji="❌"),
         ]
 
 
-class MessageExtension(ipy.Extension):
+class _LeagueLaterModal(discord.ui.Modal, title="Confirm Time"):
+    time_input: discord.ui.TextInput = discord.ui.TextInput(
+        label="When?",
+        style=discord.TextStyle.short,
+        placeholder="Leave blank to not specify",
+        required=False,
+    )
+
+    def __init__(
+        self,
+        selection_message: discord.Message,
+        author: discord.Member | discord.User,
+    ) -> None:
+        super().__init__()
+        self.selection_message = selection_message
+        self.author = author
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        try:
+            entry = f" {self.author.mention}"
+            if self.time_input.value:
+                entry += f" ({self.time_input.value})"
+
+            new_content = re.sub(
+                rf" {re.escape(self.author.mention)}( \(.*?\))?",
+                "",
+                self.selection_message.content,
+            )
+            rows = new_content.split("\n")
+            rows[_LeagueOptions.LATER.value] += entry
+
+            try:
+                await self.selection_message.edit(content="\n".join(rows))
+            except discord.HTTPException as e:
+                if e.status not in (400, 404):
+                    raise
+                logger.info(f"Failed to edit league check message: {e}. Skipping...")
+
+            await interaction.response.defer()
+        except Exception as e:
+            await handle_interaction_error(interaction, e)
+
+
+class _LeaguePingView(discord.ui.View):
+    def __init__(self, selection_message: discord.Message) -> None:
+        super().__init__(timeout=300)
+        self.selection_message = selection_message
+
+    @discord.ui.button(label="Ranked", style=discord.ButtonStyle.success, emoji="🪜")
+    async def ranked(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await _league_ping_players(
+            "Ranked", self.selection_message, {_LeagueOptions.ARAM.value}
+        )
+        await interaction.response.edit_message(content="Ranked pinged!", view=None)
+
+    @discord.ui.button(label="Aram", style=discord.ButtonStyle.primary, emoji="↗️")
+    async def aram(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await _league_ping_players(
+            "Aram", self.selection_message, {_LeagueOptions.RANKED.value}
+        )
+        await interaction.response.edit_message(content="Aram pinged!", view=None)
+
+    @discord.ui.button(label="Either", style=discord.ButtonStyle.secondary, emoji="🤷")
+    async def either(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await _league_ping_players("League", self.selection_message, set())
+        await interaction.response.edit_message(content="League pinged!", view=None)
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ) -> None:
+        await handle_interaction_error(interaction, error)
+
+
+class _LeagueDropdownView(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    @discord.ui.select(
+        custom_id=_LEAGUE_DROPDOWN,
+        placeholder="Are you down to play?",
+        min_values=1,
+        max_values=1,
+        options=_LeagueOptions.get_dropdown_options(),
+    )
+    async def league_check_dropdown(
+        self, interaction: discord.Interaction, select: discord.ui.Select
+    ) -> None:
+        selected = int(select.values[0])
+
+        if not interaction.message:
+            raise BotUsageError("Could not find original message")
+
+        if selected == _LeagueOptions.LATER.value:
+            await interaction.response.send_modal(
+                _LeagueLaterModal(interaction.message, interaction.user)
+            )
+            return
+
+        entry = f" {interaction.user.mention}"
+        new_content = re.sub(
+            rf" {re.escape(interaction.user.mention)}( \(.*?\))?",
+            "",
+            interaction.message.content,
+        )
+        rows = new_content.split("\n")
+        rows[selected] += entry
+
+        try:
+            await interaction.response.edit_message(content="\n".join(rows))
+        except discord.HTTPException as e:
+            if e.status not in (400, 404):
+                raise
+            logger.info(f"Failed to edit league check message: {e}. Skipping...")
+
+    @discord.ui.button(
+        style=discord.ButtonStyle.primary,
+        label="Ping to gather",
+        emoji="📢",
+        custom_id=_LEAGUE_PING_BUTTON,
+    )
+    async def league_check_ping(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        if not interaction.message:
+            raise BotUsageError("Could not find original message")
+
+        view = _LeaguePingView(interaction.message)
+        await interaction.response.send_message(
+            content="What game mode do you want to gather for?",
+            view=view,
+            ephemeral=True,
+        )
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ) -> None:
+        await handle_interaction_error(interaction, error)
+
+
+class MessageExtension(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
+
     @staticmethod
-    def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.CLOUDS
+    def get_help_color() -> discord.Color:
+        return discord.Color.from_str("#ECF0F1")
 
-    @ipy.slash_command(
-        scopes=[CONFIG.GUILD_ID],
-        default_member_permissions=ipy.Permissions.ADMINISTRATOR,
-    )
-    async def speak(
-        self,
-        ctx: ipy.SlashContext,
-        message: Annotated[
-            str,
-            ipy.slash_str_option(
-                description="The message for the bot to repeat", required=True
-            ),
-        ],
-    ):
-        """[ADMIN-ONLY] Make the bot say something"""
-        await ctx.send(message)
-
-    @ipy.slash_command(
-        scopes=[CONFIG.GUILD_ID],
-        default_member_permissions=ipy.Permissions.ADMINISTRATOR,
-    )
-    async def messages(self, _: ipy.SlashContext):
-        pass
-
-    @messages.subcommand()
-    async def delete(
-        self,
-        ctx: ipy.SlashContext,
-        amount: Annotated[
-            int,
-            ipy.slash_int_option(
-                description="**Caution against > 100**. The number of messages to delete.",
-                min_value=1,
-            ),
-        ] = 1,
-    ):
-        """[ADMIN-ONLY] Deletes the last X messages in the channel"""
-
-        await ctx.defer(ephemeral=True)
-        num_deleted = await ctx.channel.purge(deletion_limit=amount)
-        await ctx.send(f"Deleted {num_deleted} message(s)", ephemeral=True)
-
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
-    async def quote(
-        self,
-        ctx: ipy.SlashContext,
-        link: Annotated[
-            str,
-            ipy.slash_str_option(
-                description="The link to the message to quote", required=True
-            ),
-        ],
-    ):
-        """Quote a message"""
-
-        parsed_link = parse_discord_msg_link(link)
-        if not parsed_link:
-            raise BotUsageError("Must provide a discord message link")
-
-        message = await self._get_discord_msg(parsed_link)
-        quote_as_embed = await _create_quote_embed(message)
-        await ctx.send(embeds=quote_as_embed)
-
-    @ipy.listen("on_message_create", delay_until_ready=True)
-    async def auto_quote(self, event: ipy.events.MessageCreate):
-        """Automatically quote any messages that contain a discord message link"""
-
-        msg = event.message
-
+    @commands.Cog.listener("on_message")
+    async def auto_quote(self, msg: discord.Message) -> None:
         if msg.guild and msg.guild.id != CONFIG.GUILD_ID:
             return
 
-        quote_as_embed = None
-
         for url in get_discord_msg_links(msg.content):
             try:
-                quoted_msg = await self._get_discord_msg(url)
+                quoted_msg = await _get_discord_msg(url, self.bot)
             except BotUsageError:
                 logger.debug(
                     "url regex found match but could not fetch message from the url",
                     exc_info=True,
                 )
                 continue
-            except ipy.errors.HTTPException:
+            except discord.HTTPException:
                 logger.warning(
                     "an api error occurred while trying to retrieve a message from a url",
                     exc_info=True,
                 )
                 continue
 
-            quote_as_embed = await _create_quote_embed(quoted_msg)
-            break
-
-        if not quote_as_embed:
+            await msg.reply(embed=await _create_quote_embed(quoted_msg))
             return
 
-        await msg.reply(embeds=quote_as_embed)
-
-    @ipy.listen("on_message_create", delay_until_ready=True)
-    async def auto_fix_twitter_links(self, event: ipy.events.MessageCreate):
-        """Echo a message with fixed twitter links if needed"""
-
-        msg = event.message
-
+    @commands.Cog.listener("on_message")
+    async def auto_fix_twitter_links(self, msg: discord.Message) -> None:
         if msg.guild and msg.guild.id != CONFIG.GUILD_ID:
             return
 
@@ -177,233 +339,69 @@ class MessageExtension(ipy.Extension):
         new_content = f"Message with fixed Twitter links:\n{msg.content}".replace(
             "\n", "\n> "
         )
-        for l in BAD_TWITTER_LINKS:
-            new_content = new_content.replace(l, "https://fxtwitter.com")
+        for link in BAD_TWITTER_LINKS:
+            new_content = new_content.replace(link, "https://fxtwitter.com")
 
         await msg.reply(content=new_content)
-        await msg.suppress_embeds()
+        await msg.edit(suppress=True)
 
-    @ipy.listen("on_message_create", delay_until_ready=True)
-    async def send_league_ping_check(self, event: ipy.events.MessageCreate):
-        """Send a ping check message if a message contains the word league"""
-
+    @commands.Cog.listener("on_message")
+    async def send_league_ping_check(self, msg: discord.Message) -> None:
         if not CONFIG.LEAGUE_ROLE_ID:
             return
-
-        msg = event.message
 
         if msg.guild and msg.guild.id != CONFIG.GUILD_ID:
             return
 
-        async for r in msg.mention_roles:
-            if r.id == CONFIG.LEAGUE_ROLE_ID:
-                break
-        else:
+        if not any(r.id == CONFIG.LEAGUE_ROLE_ID for r in msg.role_mentions):
             return
 
-        dropdown = ipy.StringSelectMenu(
-            *_LeagueOptions.get_dropdown_options(),
-            custom_id=_LEAGUE_DROPDOWN,
-        )
+        options = _LeagueOptions.get_dropdown_options()
+        content = "\n".join(f"{o.emoji} {o.label}:" for o in options)
 
-        ping_button = ipy.Button(
-            style=ipy.ButtonStyle.PRIMARY,
-            label="Ping to gather",
-            emoji=":loudspeaker:",
-            custom_id=_LEAGUE_PING_BUTTON,
-        )
-
-        content = "\n".join(f"{o.emoji} {o.label}:" for o in dropdown.options)
-
-        await msg.reply(content=content, components=[[dropdown], [ping_button]])  # type: ignore[arg-type]
-
-    @ipy.component_callback(_LEAGUE_DROPDOWN)
-    async def league_check_dropdown(self, ctx: ipy.ComponentContext):
-        """Callback of the response status after pinging for league"""
-        selected = int(ctx.values[0])
-        entry = f" {ctx.author.mention}"
-        edit_message = ctx.edit_origin
-
-        if not ctx.message:
-            raise BotUsageError("Could not find original message")
-
-        if selected == _LeagueOptions.LATER.value:
-            modal = ipy.Modal(
-                ipy.InputText(
-                    custom_id="time",
-                    label="When?",
-                    style=ipy.TextStyles.SHORT,
-                    placeholder="Leave blank to not specify",
-                    required=False,
-                ),
-                custom_id=f"{_LEAGUE_DROPDOWN}_later",
-                title="Confirm Time",
-            )
-            await ctx.send_modal(modal)
-
-            modal_ctx = await ctx.bot.wait_for_modal(modal, ctx.author.id)
-
-            if modal_ctx.expired:
-                logger.info("modal cancelled or expired somehow")
-                return  # occurs sometimes if modal is cancelled in weird condition
-
-            edit_message = partial(modal_ctx.edit, ctx.message_id)
-
-            if time := modal_ctx.responses.get("time"):
-                entry += f" ({time})"
-
-        # removes either " @user" or " @user (time)" from the message
-        new_content = re.sub(
-            rf" {ctx.author.mention}( \(.*?\))?", "", ctx.message.content
-        )
-        rows = new_content.split("\n")
-        rows[selected] += entry
-
-        try:
-            await edit_message(content="\n".join(rows))
-        except ipy.errors.HTTPException as e:
-            if e.status == 400 or e.status == 404:
-                logger.info(f"{str(e)}.. Skipping...")
-                return
-
-            raise
-
-    @ipy.component_callback(_LEAGUE_PING_BUTTON)
-    async def league_check_ping(self, ctx: ipy.ComponentContext):
-        """Callback of the ping button after pinging for league"""
-        ranked_btn = ipy.Button(
-            style=ipy.ButtonStyle.SUCCESS,
-            label="Ranked",
-            emoji=":ladder:",
-            custom_id=f"{_LEAGUE_PING_BUTTON}_ranked",
-        )
-        aram_btn = ipy.Button(
-            style=ipy.ButtonStyle.PRIMARY,
-            label="Aram",
-            emoji=":arrow_upper_right:",
-            custom_id=f"{_LEAGUE_PING_BUTTON}_aram",
-        )
-        either_btn = ipy.Button(
-            style=ipy.ButtonStyle.SECONDARY,
-            label="Either",
-            emoji=":shrug:",
-            custom_id=f"{_LEAGUE_PING_BUTTON}_either",
-        )
-        await ctx.send(
-            content="What game mode do you want to gather for?",
-            components=[ranked_btn, aram_btn, either_btn],
-            ephemeral=True,
-        )
-
-    @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_ranked")
-    async def league_check_ping_ranked(self, ctx: ipy.ComponentContext):
-        """Callback of the ranked button after pinging for league"""
-        message = ctx.message.get_referenced_message() if ctx.message else None
-        if not message:
-            raise BotUsageError("Could not find original message")
-
-        await self.league_ping_players("Ranked", message, {_LeagueOptions.ARAM})
-        await ctx.edit_origin(content="Ranked pinged!", components=[])
-
-    @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_aram")
-    async def league_check_ping_aram(self, ctx: ipy.ComponentContext):
-        """Callback of the aram button after pinging for league"""
-        message = ctx.message.get_referenced_message() if ctx.message else None
-        if not message:
-            raise BotUsageError("Could not find original message")
-
-        await self.league_ping_players("Aram", message, {_LeagueOptions.RANKED})
-        await ctx.edit_origin(content="Aram pinged!", components=[])
-
-    @ipy.component_callback(f"{_LEAGUE_PING_BUTTON}_either")
-    async def league_check_ping_either(self, ctx: ipy.ComponentContext):
-        """Callback of the either button after pinging for league"""
-        message = ctx.message.get_referenced_message() if ctx.message else None
-        if not message:
-            raise BotUsageError("Could not find original message")
-
-        await self.league_ping_players("League", message, set())
-        await ctx.edit_origin(content="League pinged!", components=[])
-
-    async def league_ping_players(
-        self,
-        gamemode: Literal["Aram", "Ranked", "League"],
-        bot_selection_msg: ipy.Message,
-        ignore: set[_LeagueOptions],
-    ):
-        """Ping all players that responded to the league ping check"""
-        ignore.add(_LeagueOptions.NO)
-        rows_to_notify = [
-            r
-            for i, r in enumerate(bot_selection_msg.content.split("\n"))
-            if i not in ignore
-        ]
-
-        potential_mentions = " ".join(rows_to_notify).split(" ")
-        mentions: set[str] = set()
-
-        cmd_msg = bot_selection_msg.get_referenced_message()
-        if cmd_msg:
-            mentions.add(cmd_msg.author.mention)
-
-        for m in potential_mentions:
-            if ipy_misc_utils.mention_reg.search(m):
-                mentions.add(m)
-
-        if not mentions:
-            return
-
-        await bot_selection_msg.reply(
-            content=f"Gathering for {gamemode} {' '.join(mentions)}"
-        )
-
-    async def _get_discord_msg(self, link: DiscordMesageLink) -> ipy.Message:
-        """
-        Gets the message object from the given link
-
-        :param link: The link to get the message object from
-        :param bot: The bot to use to fetch the message
-
-        :raises BotUsageError: If the message cannot be found
-        :return: The message object
-        """
-        if link.guild_id != CONFIG.GUILD_ID:
-            raise BotUsageError("Cannot quote messages from other servers")
-
-        ch = await self.bot.fetch_channel(link.channel_id)
-        if not is_messagable(ch):
-            raise BotUsageError("Message could not be found")
-
-        message = await ch.fetch_message(link.message_id)
-        if not message:
-            raise BotUsageError("Message could not be found")
-
-        return message
+        await msg.reply(content=content, view=_LeagueDropdownView())
 
 
-async def _create_quote_embed(msg: ipy.Message) -> ipy.Embed:
-    """Construct an embed quote from a message object"""
+@app_commands.command(name="speak")
+@app_commands.default_permissions(administrator=True)
+@app_commands.describe(message="The message for the bot to repeat")
+async def _speak(interaction: discord.Interaction, message: str) -> None:
+    """[ADMIN-ONLY] Make the bot say something"""
+    await interaction.response.send_message(message)
 
-    embed = ipy.Embed()
 
-    # Set author
-    embed.set_author(name=msg.author.display_name, icon_url=msg.author.avatar.url)
+@_messages_group.command(name="delete")
+@app_commands.describe(
+    amount="**Caution against > 100**. The number of messages to delete."
+)
+async def _messages_delete(interaction: discord.Interaction, amount: int = 1) -> None:
+    """[ADMIN-ONLY] Deletes the last X messages in the channel"""
+    channel = interaction.channel
+    if not isinstance(channel, discord.TextChannel | discord.Thread):
+        raise BotUsageError("This command can only be used in a text channel")
 
-    try:
-        image_url = next(
-            url for i in msg.attachments + msg.embeds if (url := get_image_url(i))
-        )
-        embed.set_image(url=image_url)
-    except StopIteration:
-        pass
+    await interaction.response.defer(ephemeral=True)
+    deleted = await channel.purge(limit=amount)
+    await interaction.followup.send(
+        f"Deleted {len(deleted)} message(s)", ephemeral=True
+    )
 
-    # Set quoted message content with a link to the original
-    embed.description = msg.content
-    embed.description += "\n\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\n"
-    embed.description += f"[**View Original**]({str(msg.jump_url)})"
 
-    # Set footer with origin channel and message timestamp
-    embed.set_footer(text=f"in #{msg.channel.name}")
-    embed.timestamp = msg.edited_timestamp or msg.timestamp
+@app_commands.command(name="quote")
+@app_commands.describe(link="The link to the message to quote")
+async def _quote(interaction: discord.Interaction, link: str) -> None:
+    """Quote a message"""
+    parsed_link = parse_discord_msg_link(link)
+    if not parsed_link:
+        raise BotUsageError("Must provide a discord message link")
 
-    return embed
+    message = await _get_discord_msg(parsed_link, interaction.client)
+    await interaction.response.send_message(embed=await _create_quote_embed(message))
+
+
+async def setup(bot: commands.Bot) -> None:
+    bot.tree.add_command(_speak)
+    bot.tree.add_command(_messages_group)
+    bot.tree.add_command(_quote)
+    bot.add_view(_LeagueDropdownView())
+    await bot.add_cog(MessageExtension(bot))

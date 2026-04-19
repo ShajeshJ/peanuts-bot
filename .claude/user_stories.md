@@ -218,8 +218,7 @@ Each scenario includes: preconditions, action, and expected outcome. Organized b
 
 **SP-2: Non-admin attempt**
 - Given: invoker does not have Administrator permission
-- When: User runs `/speak`
-- Then: Discord blocks the command before it reaches the bot (permissions-gated)
+- Then: `/speak` is not visible or usable in the command picker (hidden by default_permissions)
 
 ---
 
@@ -237,8 +236,7 @@ Each scenario includes: preconditions, action, and expected outcome. Organized b
 
 **MD-3: Non-admin attempt**
 - Given: invoker does not have Administrator permission
-- When: User runs `/messages delete`
-- Then: Discord blocks the command (permissions-gated)
+- Then: `/messages delete` is not visible or usable in the command picker (hidden by default_permissions)
 
 ---
 
