@@ -8,6 +8,7 @@ from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import handle_interaction_error
 from peanuts_bot.extensions import ALL_EXTENSIONS
 from peanuts_bot.extensions.internals import REQUIRED_EXTENSION_PROTOS
+from peanuts_bot.libraries.discord.voice import BotVoice, announcer_rejoin_on_startup
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,8 @@ class _PeanutsTree(app_commands.CommandTree):
 
 class PeanutsBot(commands.Bot):
     async def setup_hook(self):
+        BotVoice.init(self)
+
         for ext_info in ALL_EXTENSIONS:
             if ext_info.migrated:
                 await self.load_extension(ext_info.module_path)
@@ -43,6 +46,7 @@ class PeanutsBot(commands.Bot):
         await self.change_presence(
             activity=discord.Activity(type=discord.ActivityType.watching, name="/help")
         )
+        await announcer_rejoin_on_startup(self)
 
 
 bot = PeanutsBot(

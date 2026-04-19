@@ -1,12 +1,11 @@
 import asyncio
-from collections.abc import Awaitable, Callable, Generator
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import logging
 import queue
 import typing
 
-import interactions as ipy
-import interactions.api.voice.audio as ipyaudio
+import discord
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.libraries.discord.admin import Features, has_features
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class _Work:
     filename: str
-    callback: Callable[[ipy.Client], Awaitable[typing.Any]] | None = None
+    callback: Callable[[discord.Client], Awaitable[typing.Any]] | None = None
 
 
 class BotVoice:
@@ -30,7 +29,7 @@ class BotVoice:
     To use, the client must first be initialized during application bootup
 
     ```python
-    bot = interactions.Client(...)
+    bot = commands.Bot(...)
     BotVoice.init(bot)
     ```
 
@@ -42,25 +41,25 @@ class BotVoice:
     ```
     """
 
-    _client: ipy.Client
+    _client: discord.Client
     _audio_queue: queue.Queue[_Work]
     _queue_worker: asyncio.Task[None] | None = None
 
     _instance: typing.ClassVar["BotVoice | None"] = None
     __init_flag: typing.ClassVar[bool] = False
 
-    def __new__(cls):
+    def __new__(cls) -> "BotVoice":
         if cls.__init_flag:
             cls._instance = super().__new__(cls)
             cls.__init_flag = False
 
         if not cls._instance:
-            raise RuntimeError(f"BotVoice must first be initialized by calling `init`")
+            raise RuntimeError("BotVoice must first be initialized by calling `init`")
 
         return cls._instance
 
     @classmethod
-    def init(cls, client: ipy.Client) -> None:
+    def init(cls, client: discord.Client) -> None:
         """Initialize the BotVoice client"""
         cls.__init_flag = True
         voice_client = cls()
@@ -70,7 +69,7 @@ class BotVoice:
     def queue_audio(
         self,
         filename: str,
-        callback: Callable[[ipy.Client], Awaitable[typing.Any]] | None = None,
+        callback: Callable[[discord.Client], Awaitable[typing.Any]] | None = None,
     ) -> None:
         """Queues an audio file to be played by the Bot in
         whatever voice channel it's connected to.
@@ -88,35 +87,47 @@ class BotVoice:
             logger.debug("queue worker is already running... skipping...")
             return
 
-        def clear_worker_ref(_):
+        def clear_worker_ref(_: asyncio.Task[None]) -> None:
             self._queue_worker = None
 
         self._queue_worker = asyncio.create_task(self.__process_queue())
         self._queue_worker.add_done_callback(clear_worker_ref)
 
-    async def __process_queue(self):
+    async def __process_queue(self) -> None:
         try:
             work: _Work | None = self._audio_queue.get(block=False)
-        except:
+        except Exception:
             logger.warning("audio worker ran without any work queued")
             return
 
-        async def _play_audio(_work: _Work):
-            bot_vstate = self._client.get_bot_voice_state(CONFIG.GUILD_ID)
-            if not bot_vstate:
+        async def _play_audio(_work: _Work) -> None:
+            guild = self._client.get_guild(CONFIG.GUILD_ID)
+            if not guild:
+                logger.warning("audio was not played because guild not found")
+                return
+            vc = guild.voice_client
+            if not isinstance(vc, discord.VoiceClient) or not vc.is_connected():
                 logger.warning(
                     "audio was not played because bot is not in a voice channel"
                 )
                 return
 
-            arrival_audio = ipyaudio.AudioVolume(_work.filename)
+            done = asyncio.Event()
+            loop = asyncio.get_running_loop()
+
+            def after_play(error: Exception | None) -> None:
+                if error:
+                    logger.warning("audio playback error", exc_info=error)
+                loop.call_soon_threadsafe(done.set)
+
             logger.info(f"playing {_work.filename}")
-            await bot_vstate.play(arrival_audio)
+            vc.play(discord.FFmpegPCMAudio(_work.filename), after=after_play)
+            await done.wait()
 
         while work:
             try:
                 await _play_audio(work)
-            except:
+            except Exception:
                 logger.warning(
                     "an error occurred while attempting to play the given audio",
                     exc_info=True,
@@ -125,61 +136,60 @@ class BotVoice:
                 try:
                     if work.callback:
                         await work.callback(self._client)
-                except:
+                except Exception:
                     logger.warning(
                         "an error occurred while running the callback", exc_info=True
                     )
 
             try:
                 work = self._audio_queue.get(block=False)
-            except:
+            except Exception:
                 logger.info("no more audio work to process")
                 work = None
 
 
-def get_active_user_ids(
-    bot_vstate: ipy.ActiveVoiceState,
-) -> Generator[ipy.Snowflake, None, None]:
-    """Returns a list of non-bot user ids in the given voice state"""
-    return (m.id for m in bot_vstate.channel.voice_members if not m.bot)
+def get_active_user_ids(voice_client: discord.VoiceClient) -> list[int]:
+    """Returns a list of non-bot user ids in the bot's current voice channel"""
+    channel = voice_client.channel
+    if not isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
+        return []
+    return [m.id for m in channel.members if not m.bot]
 
 
-def get_most_active_voice_channel(bot: ipy.Client) -> ipy.GuildVoice | None:
+def get_most_active_voice_channel(bot: discord.Client) -> discord.VoiceChannel | None:
     """Will get the voice channel with greatest number of non-bot users connected.
 
     Returns None if there are no voice channels with users
     """
-
     guild = bot.get_guild(CONFIG.GUILD_ID)
     if not guild:
         return None
 
     vcs = [
-        (ch, sum(1 for m in ch.voice_members if not m.bot))
+        (ch, sum(1 for m in ch.members if not m.bot))
         for ch in guild.channels
-        if isinstance(ch, ipy.GuildVoice)
+        if isinstance(ch, discord.VoiceChannel)
     ]
 
     if not vcs:
         return None
 
     most_active_vc, num_members = max(vcs, key=lambda vc_and_members: vc_and_members[1])
-
     return most_active_vc if num_members > 0 else None
 
 
-@ipy.listen(ipy.events.Startup)
-async def announcer_rejoin_on_startup(event: ipy.events.Startup):
-    guild = event.bot.get_guild(CONFIG.GUILD_ID)
-    if not guild or not await has_features(Features.VOICE_ANNOUNCER, bot=event.bot):
+async def announcer_rejoin_on_startup(bot: discord.Client) -> None:
+    guild = bot.get_guild(CONFIG.GUILD_ID)
+    if not guild or not await has_features(Features.VOICE_ANNOUNCER, bot=bot):
         return
 
-    vc_to_join = get_most_active_voice_channel(event.bot)
+    vc_to_join = get_most_active_voice_channel(bot)
     if not vc_to_join:
         return
 
     logger.info(f"Detected active voice channel on startup. Joining {vc_to_join.name}")
-    await event.bot.connect_to_vc(guild.id, vc_to_join.id, muted=False, deafened=True)
+    await vc_to_join.connect(self_deaf=True)
 
-    file = generate_tts_audio(f"{event.bot.user.username} restarted.")
+    bot_name = bot.user.name if bot.user else "Bot"
+    file = generate_tts_audio(f"{bot_name} restarted.")
     BotVoice().queue_audio(file, build_cleanup_callback(file))

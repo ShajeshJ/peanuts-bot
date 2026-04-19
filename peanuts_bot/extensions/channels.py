@@ -6,6 +6,13 @@ from discord import app_commands
 from discord.ext import commands
 
 from peanuts_bot.errors import BotUsageError
+from peanuts_bot.libraries.discord.admin import Features, has_features
+from peanuts_bot.libraries.discord.voice import (
+    BotVoice,
+    get_active_user_ids,
+    get_most_active_voice_channel,
+)
+from peanuts_bot.libraries.voice import build_cleanup_callback, generate_tts_audio
 
 __all__ = ["ChannelExtension"]
 
@@ -50,15 +57,94 @@ async def _channel_create(
     await interaction.response.send_message(f"Created new channel {channel.mention}")
 
 
+def _get_bot_voice_channel(
+    guild: discord.Guild,
+) -> discord.VoiceChannel | discord.StageChannel | None:
+    vc = guild.voice_client
+    if isinstance(vc, discord.VoiceClient) and isinstance(
+        vc.channel, (discord.VoiceChannel, discord.StageChannel)
+    ):
+        return vc.channel
+    return None
+
+
 class ChannelExtension(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
+
     @staticmethod
     def get_help_color() -> discord.Color:
         return discord.Color.from_str("#3498DB")
 
-    # Voice event listeners (announce_user_join, announce_user_move, bot_leave)
-    # are restored in Step 7 once libraries/discord/voice.py is migrated.
+    @commands.Cog.listener("on_voice_state_update")
+    async def on_voice_state_update(
+        self,
+        member: discord.Member,
+        before: discord.VoiceState,
+        after: discord.VoiceState,
+    ) -> None:
+        if member.bot:
+            return
+
+        if not await has_features(Features.VOICE_ANNOUNCER, bot=self.bot):
+            return
+
+        guild = member.guild
+        bot_channel = _get_bot_voice_channel(guild)
+
+        joined = before.channel is None and after.channel is not None
+        left = before.channel is not None and after.channel is None
+        moved = (
+            before.channel is not None
+            and after.channel is not None
+            and before.channel != after.channel
+        )
+
+        if joined and after.channel is not None:
+            if bot_channel is None:
+                await after.channel.connect(self_deaf=True)
+            elif after.channel.id == bot_channel.id:
+                file = generate_tts_audio(f"{member.display_name} has joined.")
+                BotVoice().queue_audio(file, build_cleanup_callback(file))
+
+        elif left and before.channel is not None:
+            if bot_channel is None or before.channel.id != bot_channel.id:
+                return
+            vc = guild.voice_client
+            if not isinstance(vc, discord.VoiceClient):
+                return
+            if get_active_user_ids(vc):
+                return
+            new_vc = get_most_active_voice_channel(self.bot)
+            if new_vc is None:
+                await vc.disconnect()
+                return
+            await vc.move_to(new_vc)
+            bot_name = self.bot.user.name if self.bot.user else "Bot"
+            file = generate_tts_audio(f"{bot_name} has joined.")
+            BotVoice().queue_audio(file, build_cleanup_callback(file))
+
+        elif moved and before.channel is not None and after.channel is not None:
+            if bot_channel is None:
+                return
+            vc = guild.voice_client
+            if not isinstance(vc, discord.VoiceClient):
+                return
+            if after.channel.id == bot_channel.id:
+                file = generate_tts_audio(f"{member.display_name} has joined.")
+                BotVoice().queue_audio(file, build_cleanup_callback(file))
+            elif before.channel.id == bot_channel.id:
+                if get_active_user_ids(vc):
+                    return
+                # follow user to their destination (not most-active search)
+                await vc.move_to(after.channel)
+                # announce the moving user only if others were already in destination
+                other_users = [uid for uid in get_active_user_ids(vc) if uid != member.id]
+                if other_users:
+                    file = generate_tts_audio(f"{member.display_name} has joined.")
+                    BotVoice().queue_audio(file, build_cleanup_callback(file))
 
 
 async def setup(bot: commands.Bot) -> None:
     bot.tree.add_command(_channel_group)
-    await bot.add_cog(ChannelExtension())
+    await bot.add_cog(ChannelExtension(bot))

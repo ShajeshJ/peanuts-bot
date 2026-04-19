@@ -16,15 +16,8 @@ def generate_tts_audio(text: str) -> str:
         raise ValueError("only tts < 64 characters supported")
 
     tts = gTTS(text, tld="co.uk")
-    filename = f"{str(uuid.uuid4())}.wav"
-
-    # Ideally, we can just save to a BytesIO
-    # from testing, which we can do by calling
-    # tts.write_to_fp(...) instead.
-    # However it looks like interaction-py isn't able to
-    # play from an in-memory buffer.
-    # TODO: see if we can figure out a way to pass a BytesIO
-    # to interactions-py
+    # TODO: switch to BytesIO via tts.write_to_fp() + FFmpegPCMAudio(pipe=True) after migration is complete
+    filename = f"{str(uuid.uuid4())}.mp3"
     tts.save(filename)
 
     return filename

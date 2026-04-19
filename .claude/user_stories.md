@@ -143,10 +143,11 @@ Each scenario includes: preconditions, action, and expected outcome. Organized b
 - When: VoiceStateUpdate fires
 - Then: bot plays TTS: `"<username> has joined."`
 
-**V-4: User moves out of bot's channel — bot follows to most active VC**
-- Given: bot is in "Gaming VC" with only User A; another VC "Chill VC" has 2 users
+**V-4: User moves out of bot's channel — bot follows user to their destination**
+- Given: bot is in "Gaming VC" with only User A; another VC "Chill VC" has 1+ other users
 - When: User A moves to "Chill VC"
-- Then: bot moves to "Chill VC" and plays TTS: `"<bot username> has joined."`
+- Then: bot moves to "Chill VC" and plays TTS: `"<User A's display name> has joined."` (User A's arrival is announced to those already in Chill VC)
+- Note: if "Chill VC" is empty (User A is first), no announcement is played
 
 **V-5: Last user leaves bot's channel — others remain elsewhere — bot moves**
 - Given: bot is in "Gaming VC" alone after the last user left; "Chill VC" has users
