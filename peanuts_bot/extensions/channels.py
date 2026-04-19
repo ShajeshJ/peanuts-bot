@@ -12,7 +12,7 @@ from peanuts_bot.libraries.discord.voice import (
     get_active_user_ids,
     get_most_active_voice_channel,
 )
-from peanuts_bot.libraries.voice import build_cleanup_callback, generate_tts_audio
+from peanuts_bot.libraries.voice import generate_tts_audio
 
 __all__ = ["ChannelExtension"]
 
@@ -105,8 +105,9 @@ class ChannelExtension(commands.Cog):
             if bot_channel is None:
                 await after.channel.connect(self_deaf=True)
             elif after.channel.id == bot_channel.id:
-                file = generate_tts_audio(f"{member.display_name} has joined.")
-                BotVoice().queue_audio(file, build_cleanup_callback(file))
+                BotVoice().queue_audio(
+                    generate_tts_audio(f"{member.display_name} has joined.")
+                )
 
         elif left and before.channel is not None:
             if bot_channel is None or before.channel.id != bot_channel.id:
@@ -122,8 +123,7 @@ class ChannelExtension(commands.Cog):
                 return
             await vc.move_to(new_vc)
             bot_name = self.bot.user.name if self.bot.user else "Bot"
-            file = generate_tts_audio(f"{bot_name} has joined.")
-            BotVoice().queue_audio(file, build_cleanup_callback(file))
+            BotVoice().queue_audio(generate_tts_audio(f"{bot_name} has joined."))
 
         elif moved and before.channel is not None and after.channel is not None:
             if bot_channel is None:
@@ -132,8 +132,9 @@ class ChannelExtension(commands.Cog):
             if not isinstance(vc, discord.VoiceClient):
                 return
             if after.channel.id == bot_channel.id:
-                file = generate_tts_audio(f"{member.display_name} has joined.")
-                BotVoice().queue_audio(file, build_cleanup_callback(file))
+                BotVoice().queue_audio(
+                    generate_tts_audio(f"{member.display_name} has joined.")
+                )
             elif before.channel.id == bot_channel.id:
                 if get_active_user_ids(vc):
                     return
@@ -144,8 +145,9 @@ class ChannelExtension(commands.Cog):
                     uid for uid in get_active_user_ids(vc) if uid != member.id
                 ]
                 if other_users:
-                    file = generate_tts_audio(f"{member.display_name} has joined.")
-                    BotVoice().queue_audio(file, build_cleanup_callback(file))
+                    BotVoice().queue_audio(
+                        generate_tts_audio(f"{member.display_name} has joined.")
+                    )
 
 
 async def setup(bot: commands.Bot) -> None:

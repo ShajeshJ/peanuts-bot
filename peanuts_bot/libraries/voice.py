@@ -1,33 +1,20 @@
-from collections.abc import Awaitable, Callable
+import io
 import logging
-import os
-import typing
-import uuid
+
 from gtts import gTTS  # type: ignore[import-untyped]
 
 
 logger = logging.getLogger(__name__)
 
 
-def generate_tts_audio(text: str) -> str:
-    """Generates a tts audio file on disk and returns the file path"""
+def generate_tts_audio(text: str) -> io.BytesIO:
+    """Generates TTS audio and returns it as an in-memory buffer"""
 
     if len(text) > 64:
         raise ValueError("only tts < 64 characters supported")
 
+    buf = io.BytesIO()
     tts = gTTS(text, tld="co.uk")
-    # TODO: switch to BytesIO via tts.write_to_fp() + FFmpegPCMAudio(pipe=True) after migration is complete
-    filename = f"{str(uuid.uuid4())}.mp3"
-    tts.save(filename)
-
-    return filename
-
-
-def build_cleanup_callback(filename: str) -> Callable[[typing.Any], Awaitable[None]]:
-    async def _cleanup_file(_) -> None:
-        try:
-            os.remove(filename)
-        except:
-            logger.warning("failed to clean up audio file", exc_info=True)
-
-    return _cleanup_file
+    tts.write_to_fp(buf)
+    buf.seek(0)
+    return buf

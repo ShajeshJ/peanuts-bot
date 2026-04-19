@@ -1,6 +1,6 @@
 import asyncio
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+import io
 import logging
 import queue
 import typing
@@ -9,7 +9,7 @@ import discord
 
 from peanuts_bot.config import CONFIG
 from peanuts_bot.libraries.discord.admin import Features, has_features
-from peanuts_bot.libraries.voice import build_cleanup_callback, generate_tts_audio
+from peanuts_bot.libraries.voice import generate_tts_audio
 
 
 logger = logging.getLogger(__name__)
@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class _Work:
-    filename: str
-    callback: Callable[[discord.Client], Awaitable[typing.Any]] | None = None
+    audio: io.BytesIO
 
 
 class BotVoice:
@@ -37,7 +36,7 @@ class BotVoice:
 
     ```python
     voice = BotVoice()
-    voice.queue_audio(filename)
+    voice.queue_audio(audio)
     ```
     """
 
@@ -66,22 +65,13 @@ class BotVoice:
         voice_client._client = client
         voice_client._audio_queue = queue.Queue()
 
-    def queue_audio(
-        self,
-        filename: str,
-        callback: Callable[[discord.Client], Awaitable[typing.Any]] | None = None,
-    ) -> None:
-        """Queues an audio file to be played by the Bot in
-        whatever voice channel it's connected to.
+    def queue_audio(self, audio: io.BytesIO) -> None:
+        """Queues TTS audio to be played by the Bot in whatever voice channel it's connected to.
 
-        The bot will process each audio file in the queue in order
-        and attempt to play it.
-
-        Once the audio file plays entirely (or if it fails to play at all),
-        the provided callback will be called.
+        The bot will process each audio buffer in the queue in order.
         """
-        self._audio_queue.put(_Work(filename, callback), block=False)
-        logger.info(f"{filename} queued")
+        self._audio_queue.put(_Work(audio), block=False)
+        logger.info("audio buffer queued")
 
         if self._queue_worker:
             logger.debug("queue worker is already running... skipping...")
@@ -120,8 +110,8 @@ class BotVoice:
                     logger.warning("audio playback error", exc_info=error)
                 loop.call_soon_threadsafe(done.set)
 
-            logger.info(f"playing {_work.filename}")
-            vc.play(discord.FFmpegPCMAudio(_work.filename), after=after_play)
+            logger.info("playing audio buffer")
+            vc.play(discord.FFmpegPCMAudio(_work.audio, pipe=True), after=after_play)
             await done.wait()
 
         while work:
@@ -132,14 +122,6 @@ class BotVoice:
                     "an error occurred while attempting to play the given audio",
                     exc_info=True,
                 )
-            finally:
-                try:
-                    if work.callback:
-                        await work.callback(self._client)
-                except Exception:
-                    logger.warning(
-                        "an error occurred while running the callback", exc_info=True
-                    )
 
             try:
                 work = self._audio_queue.get(block=False)
@@ -191,5 +173,4 @@ async def announcer_rejoin_on_startup(bot: discord.Client) -> None:
     await vc_to_join.connect(self_deaf=True)
 
     bot_name = bot.user.name if bot.user else "Bot"
-    file = generate_tts_audio(f"{bot_name} restarted.")
-    BotVoice().queue_audio(file, build_cleanup_callback(file))
+    BotVoice().queue_audio(generate_tts_audio(f"{bot_name} restarted."))
