@@ -1,60 +1,54 @@
 import io
-from typing import Annotated
-import interactions as ipy
+
+import discord
+from discord import app_commands
+from discord.ext import commands
 import matplotlib
 import matplotlib.pyplot as plt
 
-from peanuts_bot.config import CONFIG
 from peanuts_bot.errors import BotUsageError
-from peanuts_bot.libraries.stocks_api import StockAPI, AlphaV
+from peanuts_bot.libraries.stocks_api import AlphaV, StockAPI
 from peanuts_bot.libraries.stocks_api.errors import StocksAPIRateLimitError
 from peanuts_bot.libraries.stocks_api.interface import IDaily, IStock, ITicker
 
 __all__ = ["StockExtension"]
 
 
-class StockExtension(ipy.Extension):
+class StockExtension(commands.Cog):
     @staticmethod
-    def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.WISTERIA
+    def get_help_color() -> discord.Color:
+        return discord.Color.from_str("#8E44AD")
 
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
-    async def stock(
-        self,
-        ctx: ipy.SlashContext,
-        ticker: Annotated[
-            str,
-            ipy.slash_str_option(
-                description="**Warning: autocomplete is api rate limited**. The ticker symbol to look up",
-                required=True,
-                autocomplete=True,
-            ),
-        ],
-    ):
+    @app_commands.command(name="stock")
+    @app_commands.describe(
+        ticker="**Warning: autocomplete is api rate limited**. The ticker symbol to look up"
+    )
+    async def stock(self, interaction: discord.Interaction, ticker: str) -> None:
         """Retrieves daily stock information for the specified security"""
 
         stock_api = StockAPI(AlphaV)
 
         try:
-            stock = await stock_api.get_stock(ticker)
+            stock_data = await stock_api.get_stock(ticker)
         except StocksAPIRateLimitError:
             raise BotUsageError(
                 f"Could not get stock info for {ticker}. Try again later."
             )
 
-        graph_file = _gen_stock_graph(stock)
+        graph_file = _gen_stock_graph(stock_data)
+        embed = daily_stock_to_embed(stock_data, graph=graph_file)
 
-        await ctx.send(
-            "", file=graph_file, embed=daily_stock_to_embed(stock, graph=graph_file)
-        )
+        if graph_file:
+            await interaction.response.send_message(embed=embed, file=graph_file)
+        else:
+            await interaction.response.send_message(embed=embed)
 
     @stock.autocomplete("ticker")
-    async def stock_ticker_autocomplete(self, ctx: ipy.AutocompleteContext):
-        """
-        Autocompletes ticker symbol input
-        """
-        if not ctx.input_text:
-            return
+    async def stock_ticker_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        if not current:
+            return []
 
         def _get_option_label(r: ITicker) -> str:
             label = f"{r.symbol} ({r.name})"
@@ -63,62 +57,48 @@ class StockExtension(ipy.Extension):
             return label
 
         stock_api = StockAPI(AlphaV)
-
-        search_results = await stock_api.search_symbol(ctx.input_text)
-        await ctx.send(
-            [
-                ipy.SlashCommandChoice(name=_get_option_label(r), value=r.symbol_id)
-                for r in search_results
-            ]
-        )
+        search_results = await stock_api.search_symbol(current)
+        return [
+            app_commands.Choice(name=_get_option_label(r), value=r.symbol_id)
+            for r in search_results
+        ]
 
 
 def daily_stock_to_embed(
-    stock: IStock[IDaily], *, graph: ipy.File | None = None
-) -> ipy.Embed:
-    """
-    Parse daily stock data into an informational embed
-
-    :param stock: the daily stock data
-    :return: the embed
-    """
+    stock: IStock[IDaily], *, graph: discord.File | None = None
+) -> discord.Embed:
     embed = _create_embed(stock=stock)
     embed = _add_description(embed, stock=stock)
     embed = _add_fields(embed, stock=stock)
 
     if graph:
-        embed.set_image(url=f"attachment://{graph.file_name}")
+        embed.set_image(url=f"attachment://{graph.filename}")
 
     return embed
 
 
-def _create_embed(*, stock: IStock[IDaily]) -> ipy.Embed:
-    """
-    Creates an embed for the stock data
-    """
-    return ipy.Embed(
+def _create_embed(*, stock: IStock[IDaily]) -> discord.Embed:
+    embed = discord.Embed(
         title=f"__{stock.symbol}__ Stock Info (Daily)",
         url=f"https://ca.finance.yahoo.com/quote/{stock.symbol}",
-        color=ipy.Color.from_hex("#8935d9"),
-        footer=ipy.EmbedFooter(text=f"Last refreshed {stock.refreshed_at.date()}"),
+        color=discord.Color.from_str("#8935d9"),
     )
+    embed.set_footer(text=f"Last refreshed {stock.refreshed_at.date()}")
+    return embed
 
 
-def _add_description(embed: ipy.Embed, /, *, stock: IStock[IDaily]) -> ipy.Embed:
-    """
-    Adds the description to the embed
-    """
+def _add_description(
+    embed: discord.Embed, /, *, stock: IStock[IDaily]
+) -> discord.Embed:
     try:
         today, yesterday = stock.today, stock.yesterday
     except AttributeError:
         embed.description = "**```diff\nData for yesterady unavailable```**"
         return embed
 
-    # Calculate close difference
     diff = today.close - yesterday.close
     diff_percent = diff / yesterday.close * 100
 
-    # Format close difference; for negative values, the sign will already included in `diff`
     diff_sign = "+" if diff >= 0 else ""
     embed.description = (
         f"**```diff\n{diff_sign}{diff:.2f} ({diff_sign}{diff_percent:.2f}%)```**"
@@ -127,22 +107,13 @@ def _add_description(embed: ipy.Embed, /, *, stock: IStock[IDaily]) -> ipy.Embed
     return embed
 
 
-def _add_fields(embed: ipy.Embed, /, *, stock: IStock[IDaily]) -> ipy.Embed:
-    """
-    Adds the fields to the embed
-    """
-    all_fields = [
-        ipy.EmbedField(name, value, inline=True) for name, value in stock.get_summary()
-    ]
-    embed.add_fields(*all_fields)
-
+def _add_fields(embed: discord.Embed, /, *, stock: IStock[IDaily]) -> discord.Embed:
+    for name, value in stock.get_summary():
+        embed.add_field(name=name, value=value, inline=True)
     return embed
 
 
-def _gen_stock_graph(stock: IStock[IDaily]) -> ipy.File | None:
-    """
-    Generates a graph of the historical stock data
-    """
+def _gen_stock_graph(stock: IStock[IDaily]) -> discord.File | None:
     if len(stock.daily_prices) < 2:
         return None
 
@@ -168,4 +139,8 @@ def _gen_stock_graph(stock: IStock[IDaily]) -> ipy.File | None:
 
     plt.close("all")
 
-    return ipy.File(img_buffer, file_name="stockgraph.png")
+    return discord.File(img_buffer, filename="stockgraph.png")
+
+
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(StockExtension())

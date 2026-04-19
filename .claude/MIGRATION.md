@@ -96,7 +96,7 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 | 6 | `[x] done` | `emojis.py` (modals + context menu + persistent approval View) |
 | 7 | `[x] done` | Voice infrastructure (`libraries/discord/voice.py` + voice events) |
 | 8 | `[x] done` | `help.py` (custom paginator + discord.py tree introspection) |
-| 9 | `[ ] pending` | `stocks.py`, `minecraft.py`, `local.py` |
+| 9 | `[x] done` | `stocks.py`, `minecraft.py`, `local.py` |
 | 10 | `[ ] pending` | Consolidate group commands into Cog methods (undo module-level function pattern) |
 | 11 | `[ ] pending` | Remove `discord-py-interactions` from all code and dependencies |
 

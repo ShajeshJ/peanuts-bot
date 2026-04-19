@@ -97,6 +97,9 @@ def _parse_symbol_result(d: dict[str, str]) -> _TickerResultAV:
 
 def _parse_stock_api_result(d: dict[str, typing.Any]) -> _StockHistoryAV:
     """parses the stock history from the given api response"""
+    if "Information" in d or "Note" in d:
+        logger.info(f"alpha vantage rate limit response: {d}")
+        raise StocksAPIRateLimitError("alpha vantage rate limit reached")
     try:
         meta = d["Meta Data"]
         symbol = meta["2. Symbol"].upper()

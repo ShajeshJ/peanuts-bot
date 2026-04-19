@@ -24,16 +24,22 @@ ALL_EXTENSIONS: list[ExtInfo] = [
 
 try:
     ALPHAV_CONNECTED()
-    ALL_EXTENSIONS.append(ExtInfo("Stock", "peanuts_bot.extensions.stocks"))
+    ALL_EXTENSIONS.append(
+        ExtInfo("Stock", "peanuts_bot.extensions.stocks", migrated=True)
+    )
 except ValueError:
     logger.warning("stocks api is not connected, skipping stocks commands")
 
 try:
     MC_CONFIG()
-    ALL_EXTENSIONS.append(ExtInfo("Minecraft", "peanuts_bot.extensions.minecraft"))
+    ALL_EXTENSIONS.append(
+        ExtInfo("Minecraft", "peanuts_bot.extensions.minecraft", migrated=True)
+    )
 except ValueError:
     logger.warning("minecraft server env not set, skipping minecraft commands")
 
 if CONFIG.IS_LOCAL:
     logger.debug("loading local commands")
-    ALL_EXTENSIONS.append(ExtInfo("Local", "peanuts_bot.extensions.local"))
+    ALL_EXTENSIONS.append(
+        ExtInfo("Local", "peanuts_bot.extensions.local", migrated=True)
+    )
