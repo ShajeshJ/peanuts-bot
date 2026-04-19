@@ -2,7 +2,7 @@ import base64
 import io
 import logging
 from enum import Enum
-import interactions as ipy
+import discord
 import aiohttp
 
 
@@ -48,19 +48,19 @@ class ImageType(str, Enum):
         return "." + self.replace("image/", "").split("+")[0]
 
 
-def is_image(obj: ipy.Attachment | ipy.Embed) -> bool:
+def is_image(obj: discord.Attachment | discord.Embed) -> bool:
     """Indicates if a given attachment / embed object is an image"""
 
     if any(t.extension for t in ImageType if obj.url and obj.url.endswith(t.extension)):
         return True
 
-    if isinstance(obj, ipy.Attachment):
+    if isinstance(obj, discord.Attachment):
         return bool(obj.content_type and obj.content_type.startswith("image/"))
 
-    return obj.type == ipy.models.discord.enums.EmbedType.IMAGE
+    return obj.type == "image"
 
 
-def get_image_url(obj: ipy.Attachment | ipy.Embed) -> str | None:
+def get_image_url(obj: discord.Attachment | discord.Embed) -> str | None:
     """Returns the URL of the image for an attachment / embed object, or None if no image is available"""
 
     if not is_image(obj):
@@ -69,11 +69,8 @@ def get_image_url(obj: ipy.Attachment | ipy.Embed) -> str | None:
     return obj.url
 
 
-def decode_b64_image(image: str, *, filename: str | None = None) -> ipy.File:
+def decode_b64_image(image: str, *, filename: str | None = None) -> discord.File:
     """Converts a base64 string to a Discord file object
-
-    Can be used in conjunction with ipy.EmbedAttachment("attachment://{filename}")
-    to upload an in-memory image to Discord
 
     Args:
         image: The base64 encoded image
@@ -82,11 +79,10 @@ def decode_b64_image(image: str, *, filename: str | None = None) -> ipy.File:
     Returns:
         A Discord file object containing the image as an io.BytesIO stream
     """
-    # Remove the data URI prefix if present
     if "data:image" in image:
         image = image.split(",")[1]
 
-    return ipy.File(io.BytesIO(base64.b64decode(image)), filename)
+    return discord.File(io.BytesIO(base64.b64decode(image)), filename)
 
 
 async def get_image_metadata(url: str) -> tuple[ImageType, int]:
@@ -97,7 +93,7 @@ async def get_image_metadata(url: str) -> tuple[ImageType, int]:
 
     async with aiohttp.request("GET", url) as res:
         content_length = res.headers.get("Content-Length")
-        mime = ipy.utils.get_file_mimetype(await res.read())
+        mime = res.headers.get("Content-Type", "").split(";")[0].strip()
 
         logger.debug(f"Actual {mime=}, {content_length=}")
 

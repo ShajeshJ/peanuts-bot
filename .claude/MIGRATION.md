@@ -93,7 +93,7 @@ This would eliminate disk I/O and the build-cleanup callback pattern entirely.
 | 3 | `[x] done` | `rng.py` (slash commands + DynamicItem buttons) |
 | 4 | `[x] done` | `roles.py` (slash commands + persistent View dropdowns) |
 | 5 | `[x] done` | `messages.py` (listeners + league ping flow) |
-| 6 | `[ ] pending` | `emojis.py` (modals + context menu + persistent approval View) |
+| 6 | `[x] done` | `emojis.py` (modals + context menu + persistent approval View) |
 | 7 | `[ ] pending` | Voice infrastructure (`libraries/discord/voice.py` + voice events) |
 | 8 | `[ ] pending` | `help.py` (custom paginator + discord.py tree introspection) |
 | 9 | `[ ] pending` | `stocks.py`, `minecraft.py`, `local.py` |
