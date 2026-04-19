@@ -49,7 +49,7 @@ Small typed utility functions. `types_ext` includes `get_annotated_subtype` used
 ## Extensions
 
 ### [x] `extensions/help.py` — `/help` command
-Paginates all registered slash commands into embeds. Reads extension colors via `HelpCmdProto`. Uses `Paginator` from interactions-py.
+Paginates all registered app tree commands into embeds. Reads extension colors via `HelpCmdProto`. Uses a custom `HelpPaginator(discord.ui.View)`.
 
 ### [x] `extensions/roles.py` — `/role` commands
 Manages joinable mention roles: create, delete, join (dropdown), leave (dropdown). Joinable roles are identified by zero permissions + mentionable flag.
@@ -90,16 +90,17 @@ The Pi deployment flow is undocumented. Document:
 - `.legacy_render_bootstrap/` — note it's a dead legacy Render deployment, no longer active
 
 ### [x] `peanuts_bot/__init__.py` + `app.py` — Bot init detail
-Migration-relevant bot options not captured in CLAUDE.md:
-- `delete_unused_application_cmds=True` — stale slash commands auto-deleted on startup
-- `send_command_tracebacks=False` — suppresses ipy's built-in traceback DMs
-- `activity` — bot status shows "Watching /help"
+Key bot options:
+- `PeanutsBot(commands.Bot)` subclass with `_PeanutsTree` as `tree_cls`
+- `setup_hook()` — async setup: BotVoice.init, extension loading, Cog protocol validation, tree sync to GUILD_ID
+- `on_ready()` — sets "Watching /help" activity, calls `announcer_rejoin_on_startup`
 - `app.py` defers `import peanuts_bot` into `main()` deliberately so logging is configured first
 
 ### [x] `peanuts_bot/errors.py` — Error handler detail
-Migration-relevant detail not captured:
-- `@ipy.listen(disable_default_listeners=True)` — fully replaces ipy's built-in error handler
-- Non-`InteractionContext` errors re-raise as a wrapped exception (crashes the process)
+Key details:
+- `_PeanutsTree.on_error` — replaces discord.py's default tree error handler (not additive)
+- `handle_interaction_error(interaction, error)` — shared handler called by tree and Views
+- Non-`BotUsageError` errors DM the admin and re-raise (process continues)
 - `SOMETHING_WRONG` constant — importable generic message used by extensions (e.g. `emojis.py`)
 
 ---
@@ -109,5 +110,5 @@ Migration-relevant detail not captured:
 ### [x] Document the discord.py migration plan
 Migration plan written to `.claude/MIGRATION.md`. Includes 10 ordered steps, open questions (OQ-1 through OQ-5), per-step file lists, implementation notes, user stories to verify, and a full ipy→discord.py API quick-reference table.
 
-### [ ] Update CLAUDE.md extension pattern section
-After the migration is complete, update the extension pattern examples in `CLAUDE.md` from `ipy.Extension` to `commands.Cog`.
+### [x] Update CLAUDE.md extension pattern section
+Updated all ipy/interactions-py references across CLAUDE.md, STYLE_GUIDE.md, extensions.md, libraries_discord.md, libraries_image.md, TODO.md, and README.md.

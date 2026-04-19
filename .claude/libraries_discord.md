@@ -17,7 +17,7 @@ Flags are enabled by adding their literal string value to the bot's Discord appl
 Async check: returns True if all given flags are present in the bot's description. Use inside listeners.
 
 **`requires_features(*flags)`**
-Slash command check decorator (wraps `ipy.check`). **Not usable with listeners** — use `has_features` there instead.
+Slash command check decorator (wraps `app_commands.check`). **Not usable with listeners** — use `has_features` there instead.
 
 ---
 
@@ -36,7 +36,7 @@ Fetches the bot's application description via `GET /applications/@me`. Returns `
 **`DiscordMesageLink(NamedTuple)`** — `guild_id`, `channel_id`, `message_id`; `.url` property reconstructs the full link.
 
 **`is_messagable(channel) -> TypeGuard`**
-Type guard for `ipy.TYPE_MESSAGEABLE_CHANNEL`. Use before sending messages to an arbitrary channel.
+Type guard for `discord.abc.Messageable`. Use before sending messages to an arbitrary channel.
 
 **`disable_message_components(msg) -> Message | None`**
 Edits a message to disable all interactive components (buttons, selects). No-ops on `None` or messages without components.
@@ -56,7 +56,7 @@ Parses a single link string; returns `None` if invalid.
 **`BotVoice`** — Singleton. Must be initialized at startup via `BotVoice.init(bot)` (done in `peanuts_bot/__init__.py`). Maintains a `queue.Queue` of audio work items and an `asyncio.Task` worker that plays them sequentially in the bot's current voice channel.
 
 - `BotVoice().queue_audio(filename, callback=None)` — enqueues an audio file. If no worker is running, starts one. `callback(bot)` is awaited after playback (even on failure) — use for file cleanup (see `libraries/voice.py:build_cleanup_callback`).
-- Audio plays via `ipy.ActiveVoiceState.play()` in `CONFIG.GUILD_ID`. Skips silently if bot is not in a VC.
+- Audio plays via `discord.VoiceClient.play()` with `discord.FFmpegPCMAudio` in `CONFIG.GUILD_ID`. Skips silently if bot is not in a VC.
 
 **`get_active_user_ids(bot_vstate)`**
 Generator of `Snowflake` IDs for non-bot members in the bot's current voice channel.
@@ -64,8 +64,8 @@ Generator of `Snowflake` IDs for non-bot members in the bot's current voice chan
 **`get_most_active_voice_channel(bot) -> GuildVoice | None`**
 Finds the guild VC with the most non-bot users. Returns `None` if all VCs are empty.
 
-**`announcer_rejoin_on_startup`** (`@ipy.listen(Startup)`)
-On bot startup: if `VOICE_ANNOUNCER` feature is enabled and a non-empty VC exists, joins it and queues a TTS announcement (`"<botname> restarted."`).
+**`announcer_rejoin_on_startup(bot)`**
+Called from `on_ready`: if `VOICE_ANNOUNCER` feature is enabled and a non-empty VC exists, joins it and queues a TTS announcement (`"<botname> restarted."`).
 
 ---
 
@@ -74,7 +74,7 @@ On bot startup: if `VOICE_ANNOUNCER` feature is enabled and a non-empty VC exist
 Non-Discord-specific voice layer. Consumed by `libraries/discord/voice.py`.
 
 **`generate_tts_audio(text: str) -> str`**
-Generates a gTTS audio file on disk using UK English accent (`tld="co.uk"`). Max 64 characters. Returns the filename (UUID-based `.wav`). Files are written to disk because interactions-py cannot play from an in-memory buffer (noted as a TODO in source).
+Generates a gTTS audio file on disk using UK English accent (`tld="co.uk"`). Max 64 characters. Returns the filename (UUID-based `.mp3`). Files are written to disk; a TODO exists in source to switch to `BytesIO` + `FFmpegPCMAudio(pipe=True)` now that the migration is complete.
 
 **`build_cleanup_callback(filename) -> Callable`**
 Returns an async callback that deletes the given file. Pass as the `callback` arg to `BotVoice().queue_audio()` so TTS files are cleaned up after playback.

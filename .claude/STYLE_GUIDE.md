@@ -64,34 +64,36 @@ Rules:
 
 ## Extension Structure
 
-All extensions live in `peanuts_bot/extensions/` and inherit from `ipy.Extension`.
+All extensions live in `peanuts_bot/extensions/` and inherit from `commands.Cog`.
 
-**Required contract:** Every extension must implement `HelpCmdProto` — a static `get_help_color() -> ipy.Color` method. This is validated at bot startup.
+**Required contract:** Every extension must implement `HelpCmdProto` — a static `get_help_color() -> discord.Color` method. This is validated at bot startup.
 
-**Method ordering inside an Extension class:**
+**Method ordering inside a Cog class:**
 
 1. `get_help_color()` static method (always first)
-2. Parent slash command (pass-through, body is just `pass`)
-3. Subcommands (`@parent.subcommand()`)
-4. Component callbacks (`@ipy.component_callback(...)`)
-5. Modal callbacks (`@ipy.modal_callback(...)`)
-6. Event listeners (`@ipy.listen(...)`)
-7. Post-run handlers (`@command.post_run`)
+2. Top-level app commands (`@app_commands.command()`)
+3. Group subcommands (`@_group.command()`) — group defined as class variable
+4. Autocomplete handlers (`@cmd.autocomplete("param")`)
+5. Event listeners (`@commands.Cog.listener(...)`)
 
 **Business logic** that doesn't need `self` belongs as private module-level functions, not as methods on the class.
 
 ```python
-class MyExtension(ipy.Extension):
+class MyExtension(commands.Cog):
+    _group = app_commands.Group(name="group", description="Group of commands")
+
     @staticmethod
-    def get_help_color() -> ipy.Color:
-        return ipy.FlatUIColors.ALIZARIN
+    def get_help_color() -> discord.Color:
+        return discord.Color.red()
 
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
-    async def parent(self, _: ipy.SlashContext):
-        pass
+    @app_commands.command(name="cmd")
+    async def cmd(self, interaction: discord.Interaction):
+        """Docstring is the help text shown in Discord"""
+        ...
 
-    @parent.subcommand()
-    async def action(self, ctx: ipy.SlashContext, param: Annotated[str, ipy.slash_str_option(...)]):
+    @_group.command(name="subcommand")
+    @app_commands.describe(param="description")
+    async def group_subcommand(self, interaction: discord.Interaction, param: str):
         """Docstring is the help text shown in Discord"""
         ...
 ```
@@ -100,28 +102,32 @@ class MyExtension(ipy.Extension):
 
 ## Discord Commands
 
-**Slash command options** use `Annotated` — never positional ipy option arguments:
+**Slash command parameters** use `@app_commands.describe` for descriptions; types are native Python types:
 
 ```python
+@app_commands.describe(name="The name", role="The role to assign")
 async def cmd(
     self,
-    ctx: ipy.SlashContext,
-    name: Annotated[str, ipy.slash_str_option(required=True, description="...")],
-    role: Annotated[ipy.Role, ipy.slash_role_option(description="...", required=True)],
+    interaction: discord.Interaction,
+    name: str,
+    role: discord.Role,
 ):
 ```
 
-**Subcommand parent** commands always have `_: ipy.SlashContext` and an empty body:
+**Group commands** use a class-variable `app_commands.Group`; no empty parent pass-through needed:
 
 ```python
-@ipy.slash_command(scopes=[CONFIG.GUILD_ID])
-async def parent(self, _: ipy.SlashContext):
-    pass
+class MyExtension(commands.Cog):
+    _group = app_commands.Group(name="group", description="...")
+
+    @_group.command(name="sub")
+    async def sub(self, interaction: discord.Interaction):
+        ...
 ```
 
-**Guild scope** is always `scopes=[CONFIG.GUILD_ID]` — never global command registration.
+**Guild scope** is handled by `tree.sync(guild=discord.Object(id=CONFIG.GUILD_ID))` in `setup_hook` — commands are registered globally then copied to the guild.
 
-**Admin-only commands** use `default_member_permissions=ipy.Permissions.ADMINISTRATOR`.
+**Admin-only commands** use `@app_commands.default_permissions(administrator=True)` on commands, or `default_permissions=discord.Permissions(administrator=True)` on `app_commands.Group`.
 
 **Component custom IDs** are module-level constants:
 
@@ -139,16 +145,16 @@ ROLE_JOIN_ID = "role_join"
 raise BotUsageError("This command can only be used in a server")
 ```
 
-These are caught by the global `on_error` listener and sent back to the user as a message.
+These are caught by `_PeanutsTree.on_error` (for slash commands) or `View.on_error` (for components) and sent back to the user as a message.
 
 **System errors** (unexpected failures) → let them propagate or log and re-raise. The global handler will notify the admin and log the traceback.
 
 **HTTP errors** → catch specific status codes to handle expected API failures gracefully; don't swallow unexpected codes.
 
-**Guild/member guard pattern** (required at the top of most command handlers):
+**Guild guard pattern** (required at the top of most command handlers):
 
 ```python
-if not ctx.guild or not isinstance(ctx.author, ipy.Member):
+if not interaction.guild:
     raise BotUsageError("This command can only be used in a server")
 ```
 

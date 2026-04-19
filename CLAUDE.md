@@ -1,9 +1,7 @@
 # peanuts-bot — Claude Context
 
 ## Project Overview
-Python Discord bot for a private server. Uses `interactions-py` (`discord-py-interactions`) library. Deployed as a **systemd service on a Raspberry Pi** via Tailscale SSH.
-
-**Active goal:** Migrate from `interactions-py` to `discord.py`.
+Python Discord bot for a private server. Uses `discord.py` library. Deployed as a **systemd service on a Raspberry Pi** via Tailscale SSH.
 
 ## Key Commands
 ```bash
@@ -19,22 +17,19 @@ app.py main()
 ├── configure_logging()     → colored console logging
 ├── import peanuts_bot      → deferred deliberately so logging is ready first
 │   │                         triggers peanuts_bot/__init__.py:
-│   ├── ipy.Client created (token, ALL intents, debug_scope=GUILD_ID,
-│   │   delete_unused_application_cmds=True, send_command_tracebacks=False,
-│   │   activity=Watching "/help")
-│   ├── on_error listener registered (disable_default_listeners=True)
-│   ├── voice listener + BotVoice.init(bot) registered
-│   ├── bot.load_extension() called for each entry in ALL_EXTENSIONS
-│   └── protocol validation: all loaded extensions must implement HelpCmdProto
+│   ├── PeanutsBot (commands.Bot subclass) created (all intents, _PeanutsTree)
+│   ├── setup_hook(): BotVoice.init(), load_extension() for each ALL_EXTENSIONS
+│   │   entry, validate Cog protocols, sync tree to GUILD_ID
+│   └── on_ready(): set "Watching /help" activity, announcer rejoin on startup
 ├── health_probe.start_background_server()  → if CONFIG.HEALTH_PROBE
 └── bot.start()             → connect to Discord
 ```
 
 **`errors.py` handler detail:**
-- `disable_default_listeners=True` — fully replaces ipy's built-in error handler (not additive)
+- `_PeanutsTree.on_error` — replaces discord.py's default tree error handler (not additive)
 - `BotUsageError` → sends error message to user ephemerally, silently
 - Any other error → sends `SOMETHING_WRONG` to user, DMs admin the traceback, then re-raises
-- Non-`InteractionContext` source → re-raises as wrapped exception (crashes the process)
+- View/component errors: each `View.on_error` calls `handle_interaction_error` directly
 
 ## Critical Files
 
@@ -57,50 +52,30 @@ Convenience properties: `CONFIG.IS_LOCAL`, `CONFIG.IS_DEBUG`
 
 Optional config guards (raise `ValueError` if missing): `ALPHAV_CONNECTED`, `MC_CONFIG`
 
-## Extension Pattern (interactions-py)
+## Extension Pattern (discord.py)
 ```python
-class MyExtension(ipy.Extension):
+class MyExtension(commands.Cog):
     @staticmethod
-    def get_help_color() -> ipy.Color: ...          # Required by HelpCmdProto
+    def get_help_color() -> discord.Color: ...      # Required by HelpCmdProto
 
-    @ipy.slash_command(scopes=[CONFIG.GUILD_ID])
-    async def my_cmd(self, ctx: ipy.SlashContext): ...
+    @app_commands.command()
+    async def my_cmd(self, interaction: discord.Interaction): ...
 ```
-- All extensions must implement `HelpCmdProto` (validated at startup via `bot.ext.values()`)
-- Raise `BotUsageError` for user-facing errors (caught by global error handler)
-- Slash commands scoped to `CONFIG.GUILD_ID` (dev: same guild as prod for this bot)
-
-## interactions-py → discord.py Migration Map
-
-| interactions-py | discord.py |
-|---|---|
-| `ipy.Client(token=..., intents=ipy.Intents.ALL, debug_scope=GUILD_ID)` | `commands.Bot(intents=discord.Intents.all())` |
-| `ipy.Extension` | `commands.Cog` |
-| `@ipy.slash_command(scopes=[GUILD_ID])` | `@app_commands.command()` + guild sync |
-| `ipy.SlashContext` | `discord.Interaction` |
-| `@ipy.listen()` | `@bot.event` |
-| `ipy.events.Error` | `on_command_error` event |
-| `bot.load_extension(path)` | `await bot.load_extension(path)` (must be async, in `setup_hook`) |
-| `bot.ext.values()` | `bot.cogs.values()` |
-| `ipy.Intents.ALL` | `discord.Intents.all()` |
-
-### Migration Notes
-- `config.py`, `health_probe.py`, the protocol pattern, and `errors.py` logic are library-agnostic — reuse as-is
-- discord.py extension loading is **async** — use `async def setup_hook(self)` on the Bot subclass
-- No built-in `debug_scope`; use `bot.tree.sync(guild=discord.Object(id=GUILD_ID))` in `setup_hook` for guild-scoped slash commands
-- discord.py slash commands live in `app_commands.CommandTree` (`bot.tree`); must call `tree.sync()` to register
+- All extensions must implement `HelpCmdProto` (validated at startup via `bot.cogs.values()`)
+- Raise `BotUsageError` for user-facing errors (caught by `_PeanutsTree.on_error`)
+- Commands synced to `CONFIG.GUILD_ID` via `tree.sync(guild=...)` in `setup_hook`
 
 ## Dependency Policy
 
 All dependencies in `pyproject.toml` must be pinned to an **exact version** (no `^`, `~`, `>=`, or other range specifiers). When adding a new dependency, pin it to the specific version resolved at install time.
 
-## Libraries & Dependencies (relevant to migration)
-- `typedenv` — config loading (keep)
-- `aiohttp` — async HTTP (keep)
-- `async-lru` — async caching (keep)
-- `fastapi` + `uvicorn` — health probe (keep)
-- `matplotlib`, `mcstatus`, `gtts`, `python-dateutil` — feature libs (keep)
-- `discord-py-interactions` v5.16.0rc3 — **replace with `discord.py`**
+## Libraries & Dependencies
+- `discord.py` — Discord API library (v2.7.1, voice extras)
+- `typedenv` — config loading
+- `aiohttp` — async HTTP
+- `async-lru` — async caching
+- `fastapi` + `uvicorn` — health probe
+- `matplotlib`, `mcstatus`, `gtts`, `python-dateutil` — feature libs
 
 ## Standing Session Rules
 
@@ -114,7 +89,7 @@ See `.claude/STYLE_GUIDE.md` for full coding conventions. Key rules:
 - Strong typing everywhere; use `X | Y` unions, `Annotated[T, ...]` for slash options; avoid `cast()`
 - Module structure: imports → `__all__` → `logger` → constants → classes → private helpers
 - All imports are absolute (`from peanuts_bot.x import y`)
-- Extensions inherit `ipy.Extension`, must implement `HelpCmdProto` (`get_help_color` static method)
+- Extensions inherit `commands.Cog`, must implement `HelpCmdProto` (`get_help_color` static method)
 - User-facing errors → `raise BotUsageError(...)`, system errors propagate to global handler
 - Business logic without `self` belongs as private module-level functions, not class methods
 
@@ -146,4 +121,4 @@ See `.claude/TODO.md` for the incremental list of codebase sections not yet docu
 | `.claude/user_stories.md` | Manual validation, writing tests, or verifying feature behaviour |
 | `.claude/libraries_utils.md` | Working with dice parsing, `Annotated` introspection, or iterable counting helpers |
 | `.claude/extensions.md` | Working on any extension (help, roles, channels, users, messages, emojis, rng, stocks, minecraft, local) |
-| `.claude/MIGRATION.md` | Executing or tracking the interactions-py → discord.py migration (step status, open questions, ipy→dpy API map) |
+| `.claude/MIGRATION.md` | Archived migration log — all 11 steps complete; kept for reference |
