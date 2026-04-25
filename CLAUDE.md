@@ -94,14 +94,14 @@ See `.claude/STYLE_GUIDE.md` for full coding conventions. Key rules:
 - Business logic without `self` belongs as private module-level functions, not class methods
 
 ## Context To-Do
-See `.claude/TODO.md` for the incremental list of codebase sections not yet documented. Work through it in order when expanding context in future sessions — libraries first, then extensions, then migration tracking.
+See `.claude/TODO.md` for open code quality tasks.
 
 ## Context File Conventions
 
 **`CLAUDE.md` is the always-loaded hub.** Keep it scannable — summaries and pointers only. If a section would exceed ~20 lines, extract it into a dedicated file under `.claude/` and replace it with a 3–5 line summary + pointer here.
 
 **Use a separate `.claude/` file when:**
-- Content only matters for a specific kind of task (writing code → `STYLE_GUIDE.md`, planning what to document → `TODO.md`, migration work → `MIGRATION.md`)
+- Content only matters for a specific kind of task (writing code → `STYLE_GUIDE.md`, planning what to document → `TODO.md`)
 - A topic needs more than ~20 lines to be useful
 - Content will grow or be updated independently of the rest of `CLAUDE.md`
 
@@ -121,4 +121,3 @@ See `.claude/TODO.md` for the incremental list of codebase sections not yet docu
 | `.claude/user_stories.md` | Manual validation, writing tests, or verifying feature behaviour |
 | `.claude/libraries_utils.md` | Working with dice parsing, `Annotated` introspection, or iterable counting helpers |
 | `.claude/extensions.md` | Working on any extension (help, roles, channels, users, messages, emojis, rng, stocks, minecraft, local) |
-| `.claude/MIGRATION.md` | Archived migration log — all 11 steps complete; kept for reference |
