@@ -1,5 +1,7 @@
 import typedenv
 
+from peanuts_bot.libraries.rcon import RconConnection
+
 __all__ = ["CONFIG"]
 
 
@@ -21,7 +23,11 @@ class EnvConfig(typedenv.EnvLoader, singleton=True):
     MC_SERVER_IP: str | None
     """The IP address of the Minecraft server"""
     MC_TS_HOST: str | None
-    """The Tailscale SSH host address for the Minecraft server"""
+    """The Tailscale host address for the Minecraft server"""
+    MC_RCON_PASSWORD: str | None
+    """The RCON password for the Minecraft server"""
+    MC_RCON_PORT: int = 25575
+    """The RCON port for the Minecraft server (defaults to 25575)"""
 
     ALPHAV_API_URL: str | None
     """The Base URL for the alphavantage.co API"""
@@ -51,6 +57,16 @@ class ALPHAV_CONNECTED(EnvConfig, singleton=True):
 class MC_CONFIG(EnvConfig, singleton=True):
     MC_SERVER_IP: str
     MC_TS_HOST: str
+    MC_RCON_PASSWORD: str
+
+    @property
+    def rcon(self) -> RconConnection:
+        """RCON connection details derived from MC env config."""
+        return RconConnection(
+            host=self.MC_TS_HOST,
+            port=self.MC_RCON_PORT,
+            password=self.MC_RCON_PASSWORD,
+        )
 
 
 CONFIG = EnvConfig()
