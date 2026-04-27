@@ -497,25 +497,25 @@ Each scenario includes: preconditions, action, and expected outcome. Organized b
 **M-4: Link a valid Minecraft account**
 - Given: "Notch" is a valid Mojang username
 - When: User runs `/minecraft link username:Notch`
-- Then: bot whitelists "Notch" on the server via Tailscale SSH; sends confirmation message
+- Then: bot whitelists "Notch" on the server via RCON over Tailscale; sends confirmation message
 
 **M-5: Link an invalid username**
 - Given: "xXFakeUserXx" does not exist in the Mojang API
 - When: User runs `/minecraft link username:xXFakeUserXx`
 - Then: bot responds with a user-facing error
 
-**M-6: Whitelist command fails**
-- Given: Tailscale SSH command returns an error
+**M-6: RCON whitelist command fails**
+- Given: RCON connection, auth, or command fails (server unreachable, wrong password, etc.)
 - When: User runs `/minecraft link`
-- Then: bot responds with a user-facing error
+- Then: bot responds with a user-facing error; the underlying `RconError` is logged with traceback
 
 **M-7: Unlink a Minecraft account**
 - Given: "Notch" is a valid Mojang username
 - When: User runs `/minecraft unlink username:Notch`
-- Then: bot removes "Notch" from the whitelist via Tailscale SSH; sends confirmation
+- Then: bot removes "Notch" from the whitelist via RCON over Tailscale; sends confirmation
 
 **M-8: Extension not loaded without config**
-- Given: `MC_SERVER_IP` or `MC_TS_HOST` is not set
+- Given: `MC_SERVER_IP`, `MC_TS_HOST`, or `MC_RCON_PASSWORD` is not set
 - When: bot starts up
 - Then: `/minecraft` commands do not appear; warning is logged; no crash
 

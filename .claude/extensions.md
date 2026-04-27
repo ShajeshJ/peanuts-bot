@@ -143,10 +143,10 @@ Only loaded when `CONFIG.MC_CONFIG` guard passes. Reads config via `MC_CONFIG()`
 **`MinecraftExtension(commands.Cog)`**
 
 - `/minecraft status` — queries the server via `mcstatus.JavaServer`. Three states: online (green embed, player count, version), offline (`ConnectionRefusedError`/`OSError` → red embed), unknown error (black embed + DMs admin). Server icon decoded via `decode_b64_image` and attached as thumbnail.
-- `/minecraft link <username>` — validates username against Mojang API (`get_minecraft_user`, 5-min cache), then whitelists via `tailscale ssh` into a `screen` session running the MC server (`whitelist add <username>`).
+- `/minecraft link <username>` — validates username against Mojang API (`get_minecraft_user`, 5-min cache), then whitelists via RCON over Tailscale (`whitelist add <username>`).
 - `/minecraft unlink <username>` — same flow but `whitelist remove`.
 
-**`_whitelist_user(username, operation)`** — runs `tailscale ssh <MC_TS_HOST> '/usr/bin/screen -S mc-peanuts -X stuff "/whitelist <op> <user>\n"'` as a subprocess. Uses `shlex.quote` on user-supplied values.
+**`_whitelist_user(username, operation)`** — calls `send_rcon_command(CONFIG.rcon, f"whitelist {operation} {username}")` from `peanuts_bot.libraries.rcon`. Returns `False` on any `RconError` (connection, auth, or protocol failure).
 
 ---
 

@@ -46,7 +46,7 @@ app.py main()
 ## Configuration (`peanuts_bot/config.py`)
 Global singleton: `from peanuts_bot.config import CONFIG`
 
-Key fields: `ENV`, `BOT_TOKEN`, `GUILD_ID`, `ADMIN_USER_ID`, `HEALTH_PROBE`, `LOG_LEVEL`, `LEAGUE_ROLE_ID`, `MC_SERVER_IP`, `MC_TS_HOST`, `ALPHAV_API_URL/KEY`, `MSH_API_URL/TOKEN`
+Key fields: `ENV`, `BOT_TOKEN`, `GUILD_ID`, `ADMIN_USER_ID`, `HEALTH_PROBE`, `LOG_LEVEL`, `LEAGUE_ROLE_ID`, `MC_SERVER_IP`, `MC_TS_HOST`, `MC_RCON_PASSWORD`, `MC_RCON_PORT`, `ALPHAV_API_URL/KEY`, `MSH_API_URL/TOKEN`
 
 Convenience properties: `CONFIG.IS_LOCAL`, `CONFIG.IS_DEBUG`
 
