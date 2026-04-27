@@ -1,4 +1,3 @@
-import asyncio
 import enum
 import logging
 import shlex
@@ -16,6 +15,7 @@ from peanuts_bot.config import MC_CONFIG
 from peanuts_bot.errors import BotUsageError
 from peanuts_bot.libraries.discord.admin import send_error_to_admin
 from peanuts_bot.libraries.image import decode_b64_image
+from peanuts_bot.libraries.rcon import RconError, send_rcon_command
 
 __all__ = ["MinecraftExtension"]
 
@@ -160,31 +160,16 @@ async def get_minecraft_user(name: str) -> str | None:
 
 
 async def _whitelist_user(username: str, operation: Literal["add", "remove"]) -> bool:
-    """Whitelist a user on the Minecraft server"""
+    """Whitelist a user on the Minecraft server via RCON."""
 
     logger.info(f"whitelisting user {shlex.quote(username)}")
 
-    proc = await asyncio.create_subprocess_shell(
-        " ".join(
-            [
-                "tailscale",
-                "ssh",
-                f"{CONFIG.MC_TS_HOST}",
-                "'/usr/bin/screen",
-                "-S",
-                "mc-peanuts",
-                "-X",
-                "stuff",
-                '"/whitelist',
-                f"{shlex.quote(operation)}",
-                f"{shlex.quote(username)}\n\"'",
-            ]
-        )
-    )
-
-    _, err = await proc.communicate()
-
-    return not err
+    try:
+        await send_rcon_command(CONFIG.rcon, f"whitelist {operation} {username}")
+    except RconError:
+        logger.exception("rcon whitelist failed")
+        return False
+    return True
 
 
 async def setup(bot: commands.Bot) -> None:
