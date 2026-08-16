@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+import aiohttp
 import typedenv
 
 from peanuts_bot.libraries.rcon import RconConnection
@@ -28,6 +30,14 @@ class EnvConfig(typedenv.EnvLoader, singleton=True):
     """The RCON password for the Minecraft server"""
     MC_RCON_PORT: int = 25575
     """The RCON port for the Minecraft server (defaults to 25575)"""
+    PAL_SERVER_API_ORIGIN: str | None
+    """The origin URL for Peanuts' PAL server's API"""
+    PAL_SERVER_ADMINPW: str | None
+    """The admin password for Peanuts' PAL server's API"""
+    PAL_SERVER_CONNECT_IP: str | None
+    """The IP address for connecting to Peanuts' PAL server"""
+    PAL_SERVER_CONNECT_PW: str | None
+    """The password for connecting to Peanuts' PAL server"""
 
     ALPHAV_API_URL: str | None
     """The Base URL for the alphavantage.co API"""
@@ -67,6 +77,21 @@ class MC_CONFIG(EnvConfig, singleton=True):
             port=self.MC_RCON_PORT,
             password=self.MC_RCON_PASSWORD,
         )
+
+
+class PAL_CONFIG(EnvConfig, singleton=True):
+    PAL_SERVER_API_ORIGIN: str
+    PAL_SERVER_ADMINPW: str
+
+    @property
+    @asynccontextmanager
+    async def session(self):
+        async with aiohttp.ClientSession(
+            self.PAL_SERVER_API_ORIGIN,
+            auth=aiohttp.BasicAuth("admin", self.PAL_SERVER_ADMINPW),
+            timeout=aiohttp.ClientTimeout(sock_connect=5, sock_read=10),
+        ) as session:
+            yield session
 
 
 CONFIG = EnvConfig()

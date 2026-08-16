@@ -1,7 +1,7 @@
 import logging
 from typing import NamedTuple
 
-from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG, MC_CONFIG
+from peanuts_bot.config import ALPHAV_CONNECTED, CONFIG, MC_CONFIG, PAL_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,15 @@ try:
     )
 except ValueError:
     logger.warning("minecraft server env not set, skipping minecraft commands")
+
+
+try:
+    PAL_CONFIG()
+    ALL_EXTENSIONS.append(
+        ExtInfo("PalWorld", "peanuts_bot.extensions.palworld", migrated=True)
+    )
+except ValueError:
+    logger.warning("palworld server env not set, skipping palworld commands")
 
 if CONFIG.IS_LOCAL:
     logger.debug("loading local commands")
